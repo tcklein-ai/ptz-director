@@ -10,6 +10,17 @@
     "cam1_i": 0.0,
     "cam1_d": 0.01,
     "cam1_deadband": 60,
+    "cam1_presets": {
+        "0": "Wide",
+        "1": "wide Stage",
+        "2": "Melinda Close",
+        "3": "Right of Stage",
+        "4": "Left of Stage",
+        "5": "Drums",
+        "6": "Bass",
+        "7": "Keys 2",
+        "9": "Pulpit Wide"
+    },
     "cam2_source": "rtsp://192.168.1.28/live/av0",
     "cam2_ip": "192.168.1.28",
     "cam2_port": 5678,
@@ -17,5 +28,13 @@
     "cam2_p": 0.005,
     "cam2_i": 0.0,
     "cam2_d": 0.01,
-    "cam2_deadband": 60
+    "cam2_deadband": 60,
+    "cam2_presets": {
+        "0": "Wide",
+        "1": "Wide Stage",
+        "2": "Melinda",
+        "3": "Right side of stage",
+        "7": "Keys 2",
+        "9": "Pulpit Wide"
+    }
 }

@@ -20,6 +20,7 @@ worker_state = {
 
 latest_frame = None
 cam = None  
+tracker = None 
 
 class PIDController:
     def __init__(self, p=0.03, i=0.0, d=0.01, deadband=60):
@@ -35,7 +36,7 @@ class PIDController:
         return (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
 
 def vision_loop():
-    global latest_frame, cam
+    global latest_frame, cam, tracker
     
     current_source = worker_state["cam_source"]
     source_val = int(current_source) if str(current_source).isdigit() else current_source
@@ -208,15 +209,17 @@ async def ptz_recall_preset(request: Request):
 
 @app.post("/api/target/set")
 async def set_target(request: Request):
+    global tracker
     data = await request.json()
-    if 'tracker' in globals() and hasattr(tracker, 'set_manual_target'):
+    if tracker and hasattr(tracker, 'set_manual_target'):
         tracker.set_manual_target(data.get("x_pct"), data.get("y_pct"))
         worker_state["last_command"] = "System: Target Manually Locked"
     return {"status": "success"}
 
 @app.post("/api/target/clear")
 def clear_target():
-    if 'tracker' in globals() and hasattr(tracker, 'clear_target'):
+    global tracker
+    if tracker and hasattr(tracker, 'clear_target'):
         tracker.clear_target()
         worker_state["last_command"] = "System: Target Cleared"
     return {"status": "success"}
