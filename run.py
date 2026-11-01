@@ -2,44 +2,28 @@ import subprocess
 import sys
 import time
 
-def main():
-    print("==============================================")
-    print("        PTZ DIRECTOR - BOOT SEQUENCE          ")
-    print("==============================================\n")
+print("==============================================")
+print("        PTZ DIRECTOR - BOOT SEQUENCE          ")
+print("==============================================")
+
+try:
+    print("[BOOT] Launching Camera 1 Worker (Port 8001)...")
+    w1 = subprocess.Popen([sys.executable, "app/worker.py"])
     
-    # Start the Camera Worker (Port 8001)
-    print("[BOOT] Launching Camera Worker...")
-    worker_process = subprocess.Popen([sys.executable, "-m", "app.worker"])
+    print("[BOOT] Launching Camera 2 Worker (Port 8002)...")
+    w2 = subprocess.Popen([sys.executable, "app/worker2.py"])
     
-    # Give the worker 2 seconds to initialize and bind its port 
-    # so it's ready to receive the config JSON from the Hub
     time.sleep(2)
-    
-    # Start the UI Hub (Port 8000)
-    print("[BOOT] Launching UI Hub...")
-    hub_process = subprocess.Popen([sys.executable, "-m", "app.main"])
+    print("[BOOT] Launching UI Hub (Port 8000)...")
+    hub = subprocess.Popen([sys.executable, "app/main.py"])
     
     print("\n[SYSTEM] All services are online.")
     print("[SYSTEM] Access the dashboard at http://localhost:8000")
-    print("[SYSTEM] Press CTRL+C to gracefully shut down both servers.\n")
-    print("----------------------------------------------")
+    print("[SYSTEM] Press CTRL+C to gracefully shut down.")
     
-    try:
-        # Keep this master script alive and watching the sub-processes
-        worker_process.wait()
-        hub_process.wait()
-    except KeyboardInterrupt:
-        print("\n[SYSTEM] CTRL+C detected. Initiating shutdown sequence...")
-        
-        # Terminate both child processes cleanly
-        hub_process.terminate()
-        worker_process.terminate()
-        
-        # Wait for them to finish closing out
-        hub_process.wait()
-        worker_process.wait()
-        
-        print("[SYSTEM] All services successfully shut down. Goodbye!")
-
-if __name__ == "__main__":
-    main()
+    hub.wait()
+except KeyboardInterrupt:
+    print("\nShutting down...")
+    w1.terminate()
+    w2.terminate()
+    hub.terminate()

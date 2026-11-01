@@ -48,6 +48,10 @@
         .terminal { background: #0a0a0a; border: 1px solid #333; border-radius: 5px; padding: 10px; font-family: monospace; font-size: 14px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #5bc0de; margin-top: 10px;}
         
         #cv-stream { cursor: crosshair; }
+        
+        /* NEW TIMER PROGRESS BAR */
+        .progress-bg { background: #333; border-radius: 5px; height: 12px; overflow: hidden; margin-top: 15px; border: 1px solid #222;}
+        .progress-fill { background: #5cb85c; height: 100%; width: 0%; transition: width 0.1s linear, background-color 0.3s; }
     </style>
 </head>
 <body>
@@ -59,7 +63,8 @@
 
     <!-- MAIN DASHBOARD: ROW 1 -->
     <div class="grid-container">
-        <!-- 1: Tour Controls -->
+        
+        <!-- 1: Tour Controls & Timers -->
         <div class="card" style="border: 2px solid #0275d8;">
             <h2>Automated Tour</h2>
             <div style="background: #121212; padding: 15px; border-radius: 5px; border: 1px solid #333; margin-bottom: 20px;">
@@ -68,16 +73,27 @@
                 <hr style="border-color: #333; margin: 15px 0;">
                 <h4 style="color:#aaa; margin-bottom:5px;">Up Next</h4>
                 <h4 id="tour-next-scene" class="text-warning" style="margin: 0; font-size: 18px;">--</h4>
+                
+                <!-- PROGRESS BAR -->
+                <div class="progress-bg"><div id="tour-progress" class="progress-fill"></div></div>
+                <p style="text-align: right; margin: 5px 0 0 0; color: #888; font-size: 14px; font-weight:bold;">
+                    <span id="tour-timer-text">0.0</span>s remaining
+                </p>
             </div>
             <button id="tourBtn" class="btn-blue" onclick="toggleTour()" style="padding: 20px; font-size: 20px;">▶ Start Auto-Tour</button>
         </div>
 
-        <!-- 2: Manual Override -->
+        <!-- 2: Manual Override (Selectable Target Camera) -->
         <div class="card">
             <h2>Manual Override</h2>
+            <select id="active-manual-cam" style="width: 100%; padding: 10px; background: #222; color: white; border: 1px solid #555; border-radius: 5px; margin-bottom: 20px; font-size: 16px;" onchange="updateVideoSrc()">
+                <option value="cam_1">Controlling: Camera 1</option>
+                <option value="cam_2">Controlling: Camera 2</option>
+            </select>
+            
             <h3 id="status" class="text-danger" style="margin-bottom: 20px;">Tracking Standby</h3>
             <button id="toggleBtn" class="btn-off" onclick="toggleTracking()">Force Tracking Active</button>
-            <h4 style="margin-top: 30px; margin-bottom: 5px; text-align: left; color:#aaa;">System Telemetry</h4>
+            <h4 style="margin-top: 30px; margin-bottom: 5px; text-align: left; color:#aaa;">Target Telemetry</h4>
             <div class="terminal" id="cmd-output">System Starting...</div>
             <h4 style="margin-top: 20px; margin-bottom: 5px; text-align: left; color:#aaa;">OBS Broadcaster</h4>
             <div style="background: #121212; padding: 15px; border-radius: 5px; border: 1px solid #333;">
@@ -85,7 +101,7 @@
             </div>
         </div>
 
-        <!-- 3: Vision & Radar (MOVED TO MAIN SCREEN) -->
+        <!-- 3: Vision & Radar (Dynamically linked to the dropdown) -->
         <div class="card">
             <h2>Vision & Radar</h2>
             <button id="videoBtn" class="btn-off" onclick="toggleVideo()" style="margin-bottom: 15px;">Show Camera Preview</button>
@@ -137,72 +153,130 @@
             
             <div class="tab">
                 <button class="tablinks" onclick="openTab(event, 'TabCam1')" id="defaultOpen">Camera 1 Setup</button>
+                <button class="tablinks" onclick="openTab(event, 'TabCam2')">Camera 2 Setup</button>
                 <button class="tablinks" onclick="openTab(event, 'TabGlobal')">OBS Network</button>
             </div>
 
+            <!-- CAM 1 SETUP -->
             <div id="TabCam1" class="tabcontent">
                 <div class="settings-group" style="border-left: 4px solid #5cb85c;">
                     <h3 style="margin-top:0;">Hardware IO Routing</h3>
                     <label>Video Source (USB Index or RTSP URL)</label>
-                    <input type="text" id="cam-source" value="0" style="margin-bottom: 15px;" onchange="saveHubConfig()">
-
+                    <input type="text" id="cam1-source" value="0" style="margin-bottom: 15px;" onchange="saveHubConfig()">
                     <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
                         <div style="flex: 2; min-width: 200px;">
                             <label>PTZ VISCA IP</label>
-                            <input type="text" id="cam-ip" value="192.168.1.100" onchange="saveHubConfig()">
+                            <input type="text" id="cam1-ip" value="192.168.1.100" onchange="saveHubConfig()">
                         </div>
                         <div style="flex: 1; min-width: 100px;">
                             <label>VISCA Port</label>
-                            <input type="number" id="cam-port" value="5678" onchange="saveHubConfig()">
+                            <input type="number" id="cam1-port" value="5678" onchange="saveHubConfig()">
                         </div>
                     </div>
-                    
                     <label>Bound OBS Scene</label>
                     <div style="display: flex; gap: 10px;">
-                        <select id="cam-1-obs-scene" style="flex: 1;" onchange="saveHubConfig()">
-                            <option value="Cam 1 Wide">Cam 1 Wide</option>
-                        </select>
-                        <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh OBS Scenes">🔄</button>
+                        <select id="cam1-obs-scene" class="obs-scene-select" style="flex: 1;" onchange="saveHubConfig()"></select>
+                        <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh">🔄</button>
                     </div>
                 </div>
-
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
                         <h3 style="margin-top:0;">Virtual PTZ & Presets</h3>
                         <div style="display: flex; gap: 15px;">
                             <div class="joystick-grid">
-                                <div></div><button class="joystick-btn" onmousedown="ptzMove('up')" onmouseup="ptzMove('stop')">▲</button><div></div>
-                                <button class="joystick-btn" onmousedown="ptzMove('left')" onmouseup="ptzMove('stop')">◀</button>
-                                <button class="joystick-btn" onmousedown="ptzMove('stop')">■</button>
-                                <button class="joystick-btn" onmousedown="ptzMove('right')" onmouseup="ptzMove('stop')">▶</button>
-                                <div></div><button class="joystick-btn" onmousedown="ptzMove('down')" onmouseup="ptzMove('stop')">▼</button><div></div>
+                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_1','up')" onmouseup="ptzMove('cam_1','stop')">▲</button><div></div>
+                                <button class="joystick-btn" onmousedown="ptzMove('cam_1','left')" onmouseup="ptzMove('cam_1','stop')">◀</button>
+                                <button class="joystick-btn" onmousedown="ptzMove('cam_1','stop')">■</button>
+                                <button class="joystick-btn" onmousedown="ptzMove('cam_1','right')" onmouseup="ptzMove('cam_1','stop')">▶</button>
+                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_1','down')" onmouseup="ptzMove('cam_1','stop')">▼</button><div></div>
                             </div>
                             <div class="joystick-grid" style="grid-template-columns: 1fr; width: 60px;">
-                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('in')" onmouseup="ptzZoom('stop')">➕</button>
+                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_1','in')" onmouseup="ptzZoom('cam_1','stop')">➕</button>
                                 <div style="height: 10px;"></div>
-                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('out')" onmouseup="ptzZoom('stop')">➖</button>
+                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_1','out')" onmouseup="ptzZoom('cam_1','stop')">➖</button>
                             </div>
                         </div>
                         <label>Preset Slot</label>
-                        <select id="ptz-preset-select" style="margin-bottom: 10px;">
+                        <select id="cam1-preset-select" style="margin-bottom: 10px;">
                             <option value="1">Preset 1</option><option value="2">Preset 2</option><option value="3">Preset 3</option><option value="4">Preset 4</option>
                         </select>
                         <div style="display: flex; gap: 10px;">
-                            <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset()">Recall</button>
-                            <button class="btn-on" style="flex: 1;" onclick="ptzSavePreset()">Save</button>
+                            <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset('cam_1')">Recall</button>
+                            <button class="btn-on" style="flex: 1;" onclick="ptzSavePreset('cam_1')">Save</button>
                         </div>
                     </div>
-
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
                         <h3 style="margin-top:0;">Motor Tuning (PID)</h3>
-                        <label>Proportional (P) <span id="val-p">0.005</span></label>
-                        <input type="range" id="slider-p" min="0" max="0.05" step="0.001" value="0.005" oninput="saveHubConfig()">
-                        <label>Integral (I) <span id="val-i">0.000</span></label>
-                        <input type="range" id="slider-i" min="0" max="0.01" step="0.0001" value="0.000" oninput="saveHubConfig()">
-                        <label>Derivative (D) <span id="val-d">0.010</span></label>
-                        <input type="range" id="slider-d" min="0" max="0.05" step="0.001" value="0.010" oninput="saveHubConfig()">
-                        <label>Deadband (px) <span id="val-deadband">60</span></label>
-                        <input type="range" id="slider-deadband" min="0" max="200" step="1" value="60" oninput="saveHubConfig()">
+                        <label>Proportional (P) <span id="val1-p">0.005</span></label>
+                        <input type="range" id="cam1-p" min="0" max="0.05" step="0.001" value="0.005" oninput="saveHubConfig()">
+                        <label>Integral (I) <span id="val1-i">0.000</span></label>
+                        <input type="range" id="cam1-i" min="0" max="0.01" step="0.0001" value="0.000" oninput="saveHubConfig()">
+                        <label>Derivative (D) <span id="val1-d">0.010</span></label>
+                        <input type="range" id="cam1-d" min="0" max="0.05" step="0.001" value="0.010" oninput="saveHubConfig()">
+                        <label>Deadband (px) <span id="val1-deadband">60</span></label>
+                        <input type="range" id="cam1-deadband" min="0" max="200" step="1" value="60" oninput="saveHubConfig()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CAM 2 SETUP -->
+            <div id="TabCam2" class="tabcontent">
+                <div class="settings-group" style="border-left: 4px solid #5bc0de;">
+                    <h3 style="margin-top:0;">Hardware IO Routing</h3>
+                    <label>Video Source (USB Index or RTSP URL)</label>
+                    <input type="text" id="cam2-source" value="1" style="margin-bottom: 15px;" onchange="saveHubConfig()">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                        <div style="flex: 2; min-width: 200px;">
+                            <label>PTZ VISCA IP</label>
+                            <input type="text" id="cam2-ip" value="192.168.1.101" onchange="saveHubConfig()">
+                        </div>
+                        <div style="flex: 1; min-width: 100px;">
+                            <label>VISCA Port</label>
+                            <input type="number" id="cam2-port" value="5678" onchange="saveHubConfig()">
+                        </div>
+                    </div>
+                    <label>Bound OBS Scene</label>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="cam2-obs-scene" class="obs-scene-select" style="flex: 1;" onchange="saveHubConfig()"></select>
+                        <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh">🔄</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div class="settings-group" style="flex: 1; min-width: 300px;">
+                        <h3 style="margin-top:0;">Virtual PTZ & Presets</h3>
+                        <div style="display: flex; gap: 15px;">
+                            <div class="joystick-grid">
+                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_2','up')" onmouseup="ptzMove('cam_2','stop')">▲</button><div></div>
+                                <button class="joystick-btn" onmousedown="ptzMove('cam_2','left')" onmouseup="ptzMove('cam_2','stop')">◀</button>
+                                <button class="joystick-btn" onmousedown="ptzMove('cam_2','stop')">■</button>
+                                <button class="joystick-btn" onmousedown="ptzMove('cam_2','right')" onmouseup="ptzMove('cam_2','stop')">▶</button>
+                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_2','down')" onmouseup="ptzMove('cam_2','stop')">▼</button><div></div>
+                            </div>
+                            <div class="joystick-grid" style="grid-template-columns: 1fr; width: 60px;">
+                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_2','in')" onmouseup="ptzZoom('cam_2','stop')">➕</button>
+                                <div style="height: 10px;"></div>
+                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_2','out')" onmouseup="ptzZoom('cam_2','stop')">➖</button>
+                            </div>
+                        </div>
+                        <label>Preset Slot</label>
+                        <select id="cam2-preset-select" style="margin-bottom: 10px;">
+                            <option value="1">Preset 1</option><option value="2">Preset 2</option><option value="3">Preset 3</option><option value="4">Preset 4</option>
+                        </select>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset('cam_2')">Recall</button>
+                            <button class="btn-on" style="flex: 1;" onclick="ptzSavePreset('cam_2')">Save</button>
+                        </div>
+                    </div>
+                    <div class="settings-group" style="flex: 1; min-width: 300px;">
+                        <h3 style="margin-top:0;">Motor Tuning (PID)</h3>
+                        <label>Proportional (P) <span id="val2-p">0.005</span></label>
+                        <input type="range" id="cam2-p" min="0" max="0.05" step="0.001" value="0.005" oninput="saveHubConfig()">
+                        <label>Integral (I) <span id="val2-i">0.000</span></label>
+                        <input type="range" id="cam2-i" min="0" max="0.01" step="0.0001" value="0.000" oninput="saveHubConfig()">
+                        <label>Derivative (D) <span id="val2-d">0.010</span></label>
+                        <input type="range" id="cam2-d" min="0" max="0.05" step="0.001" value="0.010" oninput="saveHubConfig()">
+                        <label>Deadband (px) <span id="val2-deadband">60</span></label>
+                        <input type="range" id="cam2-deadband" min="0" max="200" step="1" value="60" oninput="saveHubConfig()">
                     </div>
                 </div>
             </div>
@@ -233,46 +307,11 @@
     </div>
 
     <script>
+        // CORE UI LOGIC
         const modal = document.getElementById("settingsModal");
-        
-        function loadOBSScenes() {
-            fetch('/api/obs/scenes').then(r => r.json()).then(data => {
-                if (data.scenes && data.scenes.length > 0) {
-                    const select = document.getElementById('cam-1-obs-scene');
-                    const currentVal = select.value || select.getAttribute('data-loaded-val');
-                    select.innerHTML = '';
-                    
-                    let found = false;
-                    data.scenes.forEach(scene => {
-                        const opt = document.createElement('option');
-                        opt.value = scene;
-                        opt.innerText = scene;
-                        if (scene === currentVal) {
-                            opt.selected = true;
-                            found = true;
-                        }
-                        select.appendChild(opt);
-                    });
-                    
-                    if (!found && currentVal) {
-                        const opt = document.createElement('option');
-                        opt.value = currentVal;
-                        opt.innerText = currentVal + " (Offline)";
-                        opt.selected = true;
-                        select.appendChild(opt);
-                    }
-                }
-            });
-        }
-
-        function openModal() { 
-            modal.style.display = "block"; 
-            loadOBSScenes(); 
-        }
-        
+        function openModal() { modal.style.display = "block"; loadOBSScenes(); }
         function closeModal() { modal.style.display = "none"; }
         window.onclick = function(event) { if (event.target == modal) modal.style.display = "none"; }
-
         function openTab(evt, tabName) {
             let i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tabcontent");
@@ -284,30 +323,70 @@
         }
         document.getElementById("defaultOpen").click();
 
-        function toggleTracking() { fetch('/api/toggle'); }
-        function toggleTour() { fetch('/api/tour/toggle', {method: 'POST'}); }
-        function ptzMove(direction) { fetch('/api/ptz/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: "cam_1", direction: direction})}); }
-        function ptzZoom(direction) { fetch('/api/ptz/zoom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: "cam_1", direction: direction})}); }
-        function ptzSavePreset() { fetch('/api/ptz/save_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: "cam_1", preset: document.getElementById('ptz-preset-select').value})}); alert("Preset Saved."); }
-        function ptzRecallPreset() { fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: "cam_1", preset: document.getElementById('ptz-preset-select').value})}); }
+        // ROUTED ENDPOINTS (Extracts active camera from dropdown)
+        function getActiveCam() { return document.getElementById('active-manual-cam').value; }
         
-        function connectOBS() { 
-            fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value}) })
-            .then(() => setTimeout(loadOBSScenes, 1000));
-        }
-
+        function toggleTracking() { fetch('/api/toggle', {method: 'POST', headers:{'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam()}) }); }
+        function ptzMove(cam, dir) { fetch('/api/ptz/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
+        function ptzZoom(cam, dir) { fetch('/api/ptz/zoom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
+        function ptzSavePreset(cam) { fetch('/api/ptz/save_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: document.getElementById(cam.replace('_','') + '-preset-select').value})}); alert("Preset Saved."); }
+        function ptzRecallPreset(cam) { fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: document.getElementById(cam.replace('_','') + '-preset-select').value})}); }
+        
         function setManualTarget(event) {
             const img = event.target;
-            const x_pct = event.offsetX / img.clientWidth;
-            const y_pct = event.offsetY / img.clientHeight;
-            fetch('/api/target/set', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({x_pct: x_pct, y_pct: y_pct})});
+            fetch('/api/target/set', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam(), x_pct: event.offsetX / img.clientWidth, y_pct: event.offsetY / img.clientHeight})});
         }
-        function clearTarget() { fetch('/api/target/clear', { method: 'POST' }); }
+        function clearTarget() { fetch('/api/target/clear', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam()}) }); }
 
+        // OBS & CONFIGURATIONS
+        function connectOBS() { fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value}) }).then(() => setTimeout(loadOBSScenes, 1000)); }
+
+        function loadOBSScenes() {
+            fetch('/api/obs/scenes').then(r => r.json()).then(data => {
+                if (data.scenes && data.scenes.length > 0) {
+                    document.querySelectorAll('.obs-scene-select').forEach(select => {
+                        const currentVal = select.value || select.getAttribute('data-loaded-val');
+                        select.innerHTML = '';
+                        let found = false;
+                        data.scenes.forEach(scene => {
+                            const opt = document.createElement('option');
+                            opt.value = scene; opt.innerText = scene;
+                            if (scene === currentVal) { opt.selected = true; found = true; }
+                            select.appendChild(opt);
+                        });
+                        if (!found && currentVal) {
+                            const opt = document.createElement('option');
+                            opt.value = currentVal; opt.innerText = currentVal + " (Offline)"; opt.selected = true;
+                            select.appendChild(opt);
+                        }
+                    });
+                }
+            });
+        }
+
+        function saveHubConfig() {
+            const payload = {
+                obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value,
+                
+                cam1_source: document.getElementById('cam1-source').value, cam1_ip: document.getElementById('cam1-ip').value, cam1_port: document.getElementById('cam1-port').value, cam_1_obs_scene: document.getElementById('cam1-obs-scene').value,
+                cam1_p: document.getElementById('cam1-p').value, cam1_i: document.getElementById('cam1-i').value, cam1_d: document.getElementById('cam1-d').value, cam1_deadband: document.getElementById('cam1-deadband').value,
+                
+                cam2_source: document.getElementById('cam2-source').value, cam2_ip: document.getElementById('cam2-ip').value, cam2_port: document.getElementById('cam2-port').value, cam_2_obs_scene: document.getElementById('cam2-obs-scene').value,
+                cam2_p: document.getElementById('cam2-p').value, cam2_i: document.getElementById('cam2-i').value, cam2_d: document.getElementById('cam2-d').value, cam2_deadband: document.getElementById('cam2-deadband').value
+            };
+            
+            document.getElementById('val1-p').innerText = parseFloat(payload.cam1_p).toFixed(3); document.getElementById('val1-i').innerText = parseFloat(payload.cam1_i).toFixed(4);
+            document.getElementById('val1-d').innerText = parseFloat(payload.cam1_d).toFixed(3); document.getElementById('val1-deadband').innerText = payload.cam1_deadband;
+            
+            document.getElementById('val2-p').innerText = parseFloat(payload.cam2_p).toFixed(3); document.getElementById('val2-i').innerText = parseFloat(payload.cam2_i).toFixed(4);
+            document.getElementById('val2-d').innerText = parseFloat(payload.cam2_d).toFixed(3); document.getElementById('val2-deadband').innerText = payload.cam2_deadband;
+
+            fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        }
+
+        // SEQUENCE LOGIC
         let sequenceData = [];
-        // Load the sequence immediately since it's on the main page now
         loadSequence();
-        
         function loadSequence() { fetch('/api/tour').then(r => r.json()).then(data => { sequenceData = data; renderSequenceTable(); }); }
         function renderSequenceTable() {
             const tbody = document.getElementById('seq-body'); tbody.innerHTML = '';
@@ -316,8 +395,8 @@
                 tr.innerHTML = `
                     <td><button class="btn-small btn-settings" onclick="moveCue(${index}, -1)">▲</button> <button class="btn-small btn-settings" onclick="moveCue(${index}, 1)">▼</button></td>
                     <td><input type="checkbox" style="transform: scale(1.3);" onchange="updateCue(${index}, 'enabled', this.checked)" ${cue.enabled !== false ? 'checked' : ''}></td>
-                    <td><select class="seq-input" onchange="updateCue(${index}, 'camera_id', this.value)"><option value="cam_1" ${cue.camera_id == 'cam_1' ? 'selected' : ''}>Cam 1</option></select></td>
-                    <td><select class="seq-input" onchange="updateCue(${index}, 'action', this.value)"><option value="track_face" ${cue.action == 'track_face' ? 'selected' : ''}>Auto-Track</option><option value="preset_1" ${cue.action == 'preset_1' ? 'selected' : ''}>Preset 1</option><option value="preset_2" ${cue.action == 'preset_2' ? 'selected' : ''}>Preset 2</option><option value="preset_3" ${cue.action == 'preset_3' ? 'selected' : ''}>Preset 3</option></select></td>
+                    <td><select class="seq-input" onchange="updateCue(${index}, 'camera_id', this.value)"><option value="cam_1" ${cue.camera_id == 'cam_1' ? 'selected' : ''}>Cam 1</option><option value="cam_2" ${cue.camera_id == 'cam_2' ? 'selected' : ''}>Cam 2</option></select></td>
+                    <td><select class="seq-input" onchange="updateCue(${index}, 'action', this.value)"><option value="track_face" ${cue.action == 'track_face' ? 'selected' : ''}>Auto-Track</option><option value="preset_1" ${cue.action == 'preset_1' ? 'selected' : ''}>Preset 1</option><option value="preset_2" ${cue.action == 'preset_2' ? 'selected' : ''}>Preset 2</option><option value="preset_3" ${cue.action == 'preset_3' ? 'selected' : ''}>Preset 3</option><option value="preset_4" ${cue.action == 'preset_4' ? 'selected' : ''}>Preset 4</option></select></td>
                     <td><input type="number" class="seq-input" value="${cue.settle_time_sec || 4}" onchange="updateCue(${index}, 'settle_time_sec', this.value)"></td>
                     <td><input type="number" class="seq-input" value="${cue.live_duration_sec || 15}" onchange="updateCue(${index}, 'live_duration_sec', this.value)"></td>
                     <td><button class="btn-small btn-on" style="padding: 8px 15px; font-weight: bold;" onclick="goCue(${index})">GO 🎯</button></td>
@@ -331,39 +410,35 @@
         function deleteCue(index) { sequenceData.splice(index, 1); renderSequenceTable(); }
         function saveSequence() { fetch('/api/tour', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(sequenceData)}).then(() => alert('Sequence saved.')); }
         
-        // NEW: Manually trigger a cue
-        function goCue(index) {
-            fetch('/api/tour/go', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({index: index}) });
-        }
+        function toggleTour() { fetch('/api/tour/toggle', {method: 'POST'}); }
+        function goCue(index) { fetch('/api/tour/go', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({index: index}) }); }
 
+        // DYNAMIC VIDEO PREVIEW
         let showVideo = false;
         function toggleVideo() {
-            showVideo = !showVideo; const container = document.getElementById('video-container'); const stream = document.getElementById('cv-stream'); const btn = document.getElementById('videoBtn');
-            if (showVideo) { stream.src = "/api/video_feed"; container.style.display = "block"; btn.className = "btn-on"; btn.innerText = "Hide Camera Preview"; } 
-            else { stream.src = ""; container.style.display = "none"; btn.className = "btn-off"; btn.innerText = "Show Camera Preview"; }
+            showVideo = !showVideo; 
+            updateVideoSrc();
+        }
+        function updateVideoSrc() {
+            const container = document.getElementById('video-container'); 
+            const stream = document.getElementById('cv-stream'); 
+            const btn = document.getElementById('videoBtn');
+            const camId = getActiveCam();
+            
+            if (showVideo) { 
+                stream.src = `/api/video_feed/${camId}`; 
+                container.style.display = "block"; 
+                btn.className = "btn-on"; 
+                btn.innerText = "Hide Camera Preview"; 
+            } else { 
+                stream.src = ""; 
+                container.style.display = "none"; 
+                btn.className = "btn-off"; 
+                btn.innerText = "Show Camera Preview"; 
+            }
         }
         
-        function saveHubConfig() {
-            const payload = {
-                obs_host: document.getElementById('obs-host').value,
-                obs_port: document.getElementById('obs-port').value,
-                obs_password: document.getElementById('obs-pass').value,
-                cam_source: document.getElementById('cam-source').value,
-                cam_ip: document.getElementById('cam-ip').value,
-                cam_port: document.getElementById('cam-port').value,
-                cam_1_obs_scene: document.getElementById('cam-1-obs-scene').value,
-                p: document.getElementById('slider-p').value,
-                i: document.getElementById('slider-i').value,
-                d: document.getElementById('slider-d').value,
-                deadband: document.getElementById('slider-deadband').value
-            };
-            document.getElementById('val-p').innerText = parseFloat(payload.p).toFixed(3);
-            document.getElementById('val-i').innerText = parseFloat(payload.i).toFixed(4);
-            document.getElementById('val-d').innerText = parseFloat(payload.d).toFixed(3);
-            document.getElementById('val-deadband').innerText = payload.deadband;
-            fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        }
-
+        // POLLING LOOP
         const canvas = document.getElementById('radar'); const ctx = canvas.getContext('2d');
         function drawRadar(errX, errY, currentDb) {
             ctx.clearRect(0, 0, canvas.width, canvas.height); const cx = canvas.width / 2, cy = canvas.height / 2;
@@ -377,40 +452,69 @@
 
         setInterval(() => {
             fetch('/api/state').then(r => r.json()).then(data => {
-                document.getElementById('err-x').innerText = data.error_x; document.getElementById('err-y').innerText = data.error_y;
-                document.getElementById('current-scene').innerText = data.current_scene;
-                document.getElementById('cmd-output').innerText = data.last_command || "Idle";
-                drawRadar(data.error_x, data.error_y, data.deadband || 60);
                 
-                document.getElementById('obs-conn-status').innerText = data.obs_connected ? "Connected" : "Disconnected";
-                document.getElementById('obs-conn-status').className = data.obs_connected ? "text-success" : "text-danger";
+                // Route Telemetry to the Dropdown Selection
+                const selCam = getActiveCam();
+                const camPrefix = selCam.replace('_', '');
+                
+                document.getElementById('err-x').innerText = data[`${camPrefix}_error_x`]; 
+                document.getElementById('err-y').innerText = data[`${camPrefix}_error_y`];
+                document.getElementById('cmd-output').innerText = data[`${camPrefix}_last_command`] || "Idle";
+                drawRadar(data[`${camPrefix}_error_x`], data[`${camPrefix}_error_y`], data[`${camPrefix}_deadband`] || 60);
                 
                 const trackBtn = document.getElementById('toggleBtn');
-                if (data.tracking_active) { trackBtn.className = "btn-on"; trackBtn.innerText = "Tracking Active (Click to Disable)"; document.getElementById('status').innerText = "Live Math Active"; document.getElementById('status').className = "text-success"; } 
-                else { trackBtn.className = "btn-off"; trackBtn.innerText = "Force Tracking Active"; document.getElementById('status').innerText = "Tracking Standby"; document.getElementById('status').className = "text-danger"; }
-
+                if (data[`${camPrefix}_tracking_active`]) { 
+                    trackBtn.className = "btn-on"; trackBtn.innerText = "Tracking Active (Click to Disable)"; 
+                    document.getElementById('status').innerText = "Live Math Active"; document.getElementById('status').className = "text-success"; 
+                } else { 
+                    trackBtn.className = "btn-off"; trackBtn.innerText = "Force Tracking Active"; 
+                    document.getElementById('status').innerText = "Tracking Standby"; document.getElementById('status').className = "text-danger"; 
+                }
+                
+                // General Status Updates
+                document.getElementById('current-scene').innerText = data.current_scene;
+                document.getElementById('obs-conn-status').innerText = data.obs_connected ? "Connected" : "Disconnected";
+                document.getElementById('obs-conn-status').className = data.obs_connected ? "text-success" : "text-danger";
                 document.getElementById('tour-live-scene').innerText = data.tour_live_scene || "--";
                 document.getElementById('tour-next-scene').innerText = data.tour_next_scene || "--";
                 
+                // Progress Bar Math
                 const tourBtn = document.getElementById('tourBtn');
-                if (data.tour_active) { tourBtn.className = "btn-off"; tourBtn.innerText = "⏹ Stop Auto-Tour"; } 
-                else { tourBtn.className = "btn-blue"; tourBtn.innerText = "▶ Start Auto-Tour"; }
+                if (data.tour_active) { 
+                    tourBtn.className = "btn-off"; tourBtn.innerText = "⏹ Stop Auto-Tour";
+                    const pct = Math.max(0, 100 - ((data.tour_time_rem / data.tour_time_total) * 100));
+                    document.getElementById('tour-progress').style.width = pct + "%";
+                    document.getElementById('tour-progress').style.backgroundColor = data.tour_phase === "LIVE ON AIR" ? "#d9534f" : "#f0ad4e";
+                    document.getElementById('tour-timer-text').innerText = `${data.tour_phase} - ${Math.max(0, data.tour_time_rem).toFixed(1)}`;
+                } else { 
+                    tourBtn.className = "btn-blue"; tourBtn.innerText = "▶ Start Auto-Tour"; 
+                    document.getElementById('tour-progress').style.width = "0%";
+                    document.getElementById('tour-timer-text').innerText = "0.0";
+                }
 
                 if(!window.loadedInitialData) {
-                    document.getElementById('cam-source').value = data.cam_source || "0";
-                    document.getElementById('cam-ip').value = data.cam_ip || "192.168.1.100";
-                    document.getElementById('cam-port').value = data.cam_port || 5678;
-                    
-                    const obsSelect = document.getElementById('cam-1-obs-scene');
-                    obsSelect.setAttribute('data-loaded-val', data.cam_1_obs_scene || "Cam 1 Wide");
+                    document.getElementById('cam1-source').value = data.cam1_source || "0";
+                    document.getElementById('cam1-ip').value = data.cam1_ip || "192.168.1.100";
+                    document.getElementById('cam1-port').value = data.cam1_port || 5678;
+                    document.getElementById('cam1-obs-scene').setAttribute('data-loaded-val', data.cam_1_obs_scene || "Cam 1 Wide");
+                    document.getElementById('cam1-p').value = data.cam1_p;
+                    document.getElementById('cam1-i').value = data.cam1_i;
+                    document.getElementById('cam1-d').value = data.cam1_d;
+                    document.getElementById('cam1-deadband').value = data.cam1_deadband;
+
+                    document.getElementById('cam2-source').value = data.cam2_source || "1";
+                    document.getElementById('cam2-ip').value = data.cam2_ip || "192.168.1.101";
+                    document.getElementById('cam2-port').value = data.cam2_port || 5678;
+                    document.getElementById('cam2-obs-scene').setAttribute('data-loaded-val', data.cam_2_obs_scene || "Cam 2 Wide");
+                    document.getElementById('cam2-p').value = data.cam2_p;
+                    document.getElementById('cam2-i').value = data.cam2_i;
+                    document.getElementById('cam2-d').value = data.cam2_d;
+                    document.getElementById('cam2-deadband').value = data.cam2_deadband;
                     
                     document.getElementById('obs-host').value = data.obs_host || "localhost";
                     document.getElementById('obs-port').value = data.obs_port || 4455;
                     document.getElementById('obs-pass').value = data.obs_password || ""; 
-                    document.getElementById('slider-p').value = data.p;
-                    document.getElementById('slider-i').value = data.i;
-                    document.getElementById('slider-d').value = data.d;
-                    document.getElementById('slider-deadband').value = data.deadband;
+                    
                     saveHubConfig(); 
                     window.loadedInitialData = true;
                 }

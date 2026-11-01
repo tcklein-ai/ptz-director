@@ -12,15 +12,23 @@ from app.services.director import SceneDirector
 
 CONFIG_FILE = "config.json"
 TOUR_FILE = "tour_config.json"
-WORKER_1_URL = "http://127.0.0.1:8001"
+
+WORKERS = {
+    "cam_1": "http://127.0.0.1:8001",
+    "cam_2": "http://127.0.0.1:8002"
+}
 
 global_state = {
     "current_scene": "Unknown",
     "obs_host": "localhost", "obs_port": 4455, "obs_password": "", "obs_connected": False,
-    "cam_source": "0", "cam_ip": "192.168.1.100", "cam_port": 5678,
-    "cam_1_obs_scene": "Cam 1 Wide", 
-    "p": 0.005, "i": 0.000, "d": 0.010, "deadband": 60, "loop_delay": 33,
-    "tracking_active": False, "error_x": 0, "error_y": 0, "last_command": "System Starting..."
+    
+    "cam1_source": "0", "cam1_ip": "192.168.1.100", "cam1_port": 5678, "cam_1_obs_scene": "Cam 1 Wide", 
+    "cam1_p": 0.005, "cam1_i": 0.000, "cam1_d": 0.010, "cam1_deadband": 60, "cam1_loop_delay": 33,
+    "cam1_error_x": 0, "cam1_error_y": 0, "cam1_tracking_active": False, "cam1_last_command": "Offline",
+
+    "cam2_source": "1", "cam2_ip": "192.168.1.101", "cam2_port": 5678, "cam_2_obs_scene": "Cam 2 Wide", 
+    "cam2_p": 0.005, "cam2_i": 0.000, "cam2_d": 0.010, "cam2_deadband": 60, "cam2_loop_delay": 33,
+    "cam2_error_x": 0, "cam2_error_y": 0, "cam2_tracking_active": False, "cam2_last_command": "Offline",
 }
 
 obs_manager = None
@@ -32,24 +40,35 @@ def load_config():
         try:
             with open(CONFIG_FILE, "r") as f:
                 saved = json.load(f)
-                keys = ["p", "i", "d", "deadband", "loop_delay", "obs_host", "obs_port", "obs_password", "cam_ip", "cam_port", "cam_source", "cam_1_obs_scene"]
-                for k in keys:
-                    if k in saved: global_state[k] = saved[k]
+                for k in saved:
+                    if k in global_state: global_state[k] = saved[k]
         except Exception: pass
 
 def save_config():
-    keys = ["p", "i", "d", "deadband", "loop_delay", "obs_host", "obs_port", "obs_password", "cam_ip", "cam_port", "cam_source", "cam_1_obs_scene"]
+    keys = ["obs_host", "obs_port", "obs_password",
+            "cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband",
+            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband"]
     data = {k: global_state[k] for k in keys}
     with open(CONFIG_FILE, "w") as f: json.dump(data, f, indent=4)
 
-def push_config_to_worker():
-    keys = ["p", "i", "d", "deadband", "loop_delay", "cam_ip", "cam_port", "cam_source"]
-    payload = {k: global_state[k] for k in keys}
-    try: requests.post(f"{WORKER_1_URL}/api/config", json=payload, timeout=1.0)
+def push_config_to_workers():
+    # Push to Cam 1
+    c1_payload = {
+        "cam_ip": global_state["cam1_ip"], "cam_port": global_state["cam1_port"], "cam_source": global_state["cam1_source"],
+        "p": global_state["cam1_p"], "i": global_state["cam1_i"], "d": global_state["cam1_d"], "deadband": global_state["cam1_deadband"]
+    }
+    try: requests.post(f"{WORKERS['cam_1']}/api/config", json=c1_payload, timeout=0.5)
+    except: pass
+
+    # Push to Cam 2
+    c2_payload = {
+        "cam_ip": global_state["cam2_ip"], "cam_port": global_state["cam2_port"], "cam_source": global_state["cam2_source"],
+        "p": global_state["cam2_p"], "i": global_state["cam2_i"], "d": global_state["cam2_d"], "deadband": global_state["cam2_deadband"]
+    }
+    try: requests.post(f"{WORKERS['cam_2']}/api/config", json=c2_payload, timeout=0.5)
     except: pass
 
 def get_cam_scene(cam_id):
-    """Callback for the director to lookup the bound OBS scene."""
     return global_state.get(f"{cam_id}_obs_scene", "Unknown")
 
 @asynccontextmanager
@@ -58,10 +77,8 @@ async def lifespan(app: FastAPI):
     global obs_manager, director
     obs_manager = OBSManager(host=global_state["obs_host"], port=global_state["obs_port"], password=global_state["obs_password"], on_scene_change=lambda s: global_state.update({"current_scene": s}))
     global_state["obs_connected"] = obs_manager.connected
-    
-    # Pass the callback to the director
-    director = SceneDirector(config_path=TOUR_FILE, obs_manager=obs_manager, workers_map={"cam_1": WORKER_1_URL}, scene_lookup_cb=get_cam_scene)
-    push_config_to_worker()
+    director = SceneDirector(config_path=TOUR_FILE, obs_manager=obs_manager, workers_map=WORKERS, scene_lookup_cb=get_cam_scene)
+    push_config_to_workers()
     yield
     if obs_manager: obs_manager.disconnect()
     if director: director.stop_tour()
@@ -73,21 +90,35 @@ def read_root(request: Request): return templates.TemplateResponse(request=reque
 
 @app.get("/api/state")
 def get_state():
+    # Poll Worker 1
     try:
-        res = requests.get(f"{WORKER_1_URL}/api/state", timeout=0.2).json()
-        global_state.update({"error_x": res.get("error_x",0), "error_y": res.get("error_y",0), "tracking_active": res.get("tracking_active",False), "last_command": res.get("last_command","Idle")})
-    except: global_state.update({"error_x": 0, "error_y": 0, "last_command": "Worker Offline"})
+        r1 = requests.get(f"{WORKERS['cam_1']}/api/state", timeout=0.2).json()
+        global_state.update({"cam1_error_x": r1.get("error_x",0), "cam1_error_y": r1.get("error_y",0), "cam1_tracking_active": r1.get("tracking_active",False), "cam1_last_command": r1.get("last_command","Idle")})
+    except: global_state.update({"cam1_last_command": "Worker 1 Offline"})
+    
+    # Poll Worker 2
+    try:
+        r2 = requests.get(f"{WORKERS['cam_2']}/api/state", timeout=0.2).json()
+        global_state.update({"cam2_error_x": r2.get("error_x",0), "cam2_error_y": r2.get("error_y",0), "cam2_tracking_active": r2.get("tracking_active",False), "cam2_last_command": r2.get("last_command","Idle")})
+    except: global_state.update({"cam2_last_command": "Worker 2 Offline"})
         
+    # Poll Director Timers
     if director and director.is_running and director.cues:
+        d_stat = director.get_status()
         current_cue = director.cues[director.current_cue_idx]
         cam_id = current_cue.get("camera_id", "cam_1")
         global_state["tour_live_scene"] = global_state.get(f"{cam_id}_obs_scene", "Unknown")
         
         next_cam = director.cues[(director.current_cue_idx + 1) % len(director.cues)].get("camera_id", "cam_1")
         global_state["tour_next_scene"] = global_state.get(f"{next_cam}_obs_scene", "Unknown")
+        
         global_state["tour_active"] = True
+        global_state["tour_phase"] = d_stat["phase"]
+        global_state["tour_time_total"] = d_stat["timer_duration"]
+        global_state["tour_time_rem"] = round(d_stat["timer_duration"] - d_stat["timer_elapsed"], 1)
     else:
-        global_state.update({"tour_live_scene": "--", "tour_next_scene": "--", "tour_active": False})
+        global_state.update({"tour_live_scene": "--", "tour_next_scene": "--", "tour_active": False, "tour_phase": "IDLE", "tour_time_rem": 0.0, "tour_time_total": 1.0})
+    
     return global_state
 
 @app.post("/api/hub_config")
@@ -101,50 +132,23 @@ async def update_hub_config(request: Request):
             reconnect = True
     if reconnect and obs_manager: global_state["obs_connected"] = obs_manager.reconnect(global_state["obs_host"], int(global_state["obs_port"]), global_state["obs_password"])
 
-    for k in ["p", "i", "d", "deadband", "loop_delay", "cam_ip", "cam_port", "cam_source", "cam_1_obs_scene"]:
+    keys = ["cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband",
+            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband"]
+    for k in keys:
         if k in data:
-            if k in ["p", "i", "d"]: global_state[k] = float(data[k])
-            elif k in ["deadband", "loop_delay", "cam_port"]: global_state[k] = int(data[k])
+            if "_p" in k or "_i" in k or "_d" in k and "deadband" not in k: global_state[k] = float(data[k])
+            elif "deadband" in k or "port" in k: global_state[k] = int(data[k])
             else: global_state[k] = str(data[k])
+            
     save_config()
-    push_config_to_worker()
+    push_config_to_workers()
     return {"status": "success"}
 
 @app.get("/api/obs/scenes")
 def get_obs_scenes():
     scenes = []
-    if obs_manager and obs_manager.connected:
-        scenes = obs_manager.get_scenes()
+    if obs_manager and obs_manager.connected: scenes = obs_manager.get_scenes()
     return {"scenes": scenes}
-
-@app.get("/api/toggle")
-def toggle_tracking():
-    try: global_state["tracking_active"] = requests.post(f"{WORKER_1_URL}/api/toggle", timeout=1.0).json().get("active", False)
-    except: pass
-    return {"active": global_state["tracking_active"]}
-
-@app.post("/api/target/set")
-async def set_target(request: Request):
-    data = await request.json()
-    try: requests.post(f"{WORKER_1_URL}/api/target/set", json=data, timeout=1.0)
-    except: pass
-    return {"status": "success"}
-
-@app.post("/api/target/clear")
-def clear_target():
-    try: requests.post(f"{WORKER_1_URL}/api/target/clear", timeout=1.0)
-    except: pass
-    return {"status": "success"}
-
-@app.get("/api/video_feed")
-def video_feed():
-    def generate():
-        try:
-            with requests.get(f"{WORKER_1_URL}/api/video_feed", stream=True, timeout=5.0) as r:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk: yield chunk
-        except: pass
-    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/api/tour")
 def get_tour():
@@ -159,49 +163,73 @@ async def save_tour(request: Request):
     if director: director.load_config()
     return {"status": "success"}
 
-@app.post("/api/tour/go")
-async def go_tour(request: Request):
-    """NEW: Interrupts the director and forces a specific cue."""
-    data = await request.json()
-    idx = int(data.get("index", 0))
-    if director:
-        director.trigger_cue(idx)
-    return {"status": "success"}
-
-@app.post("/api/ptz/move")
-async def ptz_move(request: Request):
-    data = await request.json()
-    try: requests.post(f"{WORKER_1_URL}/api/ptz/move", json=data, timeout=1.0)
-    except: pass
-    return {"status": "success"}
-
-@app.post("/api/ptz/zoom")
-async def ptz_zoom(request: Request):
-    data = await request.json()
-    try: requests.post(f"{WORKER_1_URL}/api/ptz/zoom", json=data, timeout=1.0)
-    except: pass
-    return {"status": "success"}
-
-@app.post("/api/ptz/save_preset")
-async def ptz_preset(request: Request):
-    data = await request.json()
-    try: requests.post(f"{WORKER_1_URL}/api/ptz/save_preset", json=data, timeout=1.0)
-    except: pass
-    return {"status": "success"}
-
-@app.post("/api/ptz/recall_preset")
-async def ptz_recall_preset(request: Request):
-    data = await request.json()
-    try: requests.post(f"{WORKER_1_URL}/api/ptz/recall_preset", json=data, timeout=1.0)
-    except: pass
-    return {"status": "success"}
-
 @app.post("/api/tour/toggle")
 def toggle_tour():
     if director:
         if director.is_running: director.stop_tour()
         else: director.start_tour()
     return {"status": "success"}
+
+@app.post("/api/tour/go")
+async def go_tour(request: Request):
+    data = await request.json()
+    if director: director.trigger_cue(int(data.get("index", 0)))
+    return {"status": "success"}
+
+# --- Dynamic Routed Proxy Endpoints ---
+def route_camera_command(endpoint: str, data: dict):
+    cam = data.get("camera_id", "cam_1")
+    url = WORKERS.get(cam)
+    if url:
+        try: requests.post(f"{url}{endpoint}", json=data, timeout=1.0)
+        except: pass
+
+@app.post("/api/toggle")
+async def toggle_tracking(request: Request):
+    data = await request.json()
+    route_camera_command("/api/toggle", data)
+    return {"status": "success"}
+
+@app.post("/api/target/set")
+async def set_target(request: Request):
+    route_camera_command("/api/target/set", await request.json())
+    return {"status": "success"}
+
+@app.post("/api/target/clear")
+async def clear_target(request: Request):
+    route_camera_command("/api/target/clear", await request.json())
+    return {"status": "success"}
+
+@app.post("/api/ptz/move")
+async def ptz_move(request: Request):
+    route_camera_command("/api/ptz/move", await request.json())
+    return {"status": "success"}
+
+@app.post("/api/ptz/zoom")
+async def ptz_zoom(request: Request):
+    route_camera_command("/api/ptz/zoom", await request.json())
+    return {"status": "success"}
+
+@app.post("/api/ptz/save_preset")
+async def ptz_preset(request: Request):
+    route_camera_command("/api/ptz/save_preset", await request.json())
+    return {"status": "success"}
+
+@app.post("/api/ptz/recall_preset")
+async def ptz_recall_preset(request: Request):
+    route_camera_command("/api/ptz/recall_preset", await request.json())
+    return {"status": "success"}
+
+@app.get("/api/video_feed/{cam_id}")
+def video_feed(cam_id: str):
+    url = WORKERS.get(cam_id, WORKERS["cam_1"])
+    def generate():
+        try:
+            with requests.get(f"{url}/api/video_feed", stream=True, timeout=5.0) as r:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk: yield chunk
+        except: pass
+    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -25,14 +25,5 @@
         "settle_time_sec": 4,
         "live_duration_sec": 15,
         "is_moving_shot": false
-    },
-    {
-        "enabled": true,
-        "obs_scene": "New Scene",
-        "camera_id": "cam_1",
-        "action": "track_face",
-        "settle_time_sec": 4,
-        "live_duration_sec": 15,
-        "is_moving_shot": true
     }
 ]
