@@ -6,10 +6,10 @@
     "cam1_ip": "192.168.1.27",
     "cam1_port": 5678,
     "cam_1_obs_scene": "Camera 1",
-    "cam1_p": 0.005,
+    "cam1_p": 0.001,
     "cam1_i": 0.0,
-    "cam1_d": 0.01,
-    "cam1_deadband": 60,
+    "cam1_d": 0.001,
+    "cam1_deadband": 105,
     "cam1_presets": {
         "0": "Wide",
         "1": "wide Stage",

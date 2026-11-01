@@ -48,65 +48,70 @@ def vision_loop():
     was_tracking = False 
     
     while True:
-        if worker_state["cam_source"] != current_source:
-            current_source = worker_state["cam_source"]
-            if hasattr(tracker, 'stop'): tracker.stop()
-            elif hasattr(tracker, 'cap'): tracker.cap.release()
-                
-            source_val = int(current_source) if str(current_source).isdigit() else current_source
-            tracker = VisionTracker(source_val)
-            worker_state["last_command"] = f"System: Bound to Video Device {current_source}"
-        
-        current_time = time.time()
-        dt = current_time - last_time
-        last_time = current_time
-
-        success, frame, err_x, err_y = tracker.get_frame()
-        
-        if success:
-            latest_frame = frame.copy()
-            worker_state["error_x"] = int(err_x)
-            worker_state["error_y"] = int(err_y)
+        try:
+            if worker_state["cam_source"] != current_source:
+                current_source = worker_state["cam_source"]
+                if hasattr(tracker, 'stop'): tracker.stop()
+                elif hasattr(tracker, 'cap'): tracker.cap.release()
+                    
+                source_val = int(current_source) if str(current_source).isdigit() else current_source
+                tracker = VisionTracker(source_val)
+                worker_state["last_command"] = f"System: Bound to Video Device {current_source}"
             
-            if worker_state["joystick_active"]:
-                was_tracking = False
-                time.sleep(worker_state["loop_delay"] / 1000.0)
-                continue 
-                
-            if worker_state["tracking_active"]:
-                was_tracking = True
-                pan_pid.Kp = tilt_pid.Kp = worker_state["p"]
-                pan_pid.Ki = tilt_pid.Ki = worker_state["i"]
-                pan_pid.Kd = tilt_pid.Kd = worker_state["d"]
-                pan_pid.deadband = tilt_pid.deadband = worker_state["deadband"]
+            current_time = time.time()
+            dt = current_time - last_time
+            last_time = current_time
 
-                pan_output = pan_pid.update(err_x, dt)
-                tilt_output = tilt_pid.update(err_y, dt)
+            success, frame, err_x, err_y = tracker.get_frame()
+            
+            if success:
+                latest_frame = frame.copy()
+                worker_state["error_x"] = int(err_x)
+                worker_state["error_y"] = int(err_y)
                 
-                dir_parts = []
-                if tilt_output > 0: dir_parts.append("down")
-                elif tilt_output < 0: dir_parts.append("up")
-                if pan_output > 0: dir_parts.append("right")
-                elif pan_output < 0: dir_parts.append("left")
-                
-                direction = "_".join(dir_parts) if dir_parts else "stop"
-                p_speed = 0 if direction == "stop" else min(24, max(1, int(abs(pan_output))))
-                t_speed = 0 if direction == "stop" else min(20, max(1, int(abs(tilt_output))))
-                
-                if cam: 
-                    cam.move(p_speed, t_speed, direction)
-                    if direction == "stop": worker_state["last_command"] = "Auto: Locked on target"
-                    else: worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
-            else:
-                if was_tracking:
-                    if cam: cam.move(0, 0, "stop")
-                    worker_state["last_command"] = "Auto: Standby"
+                if worker_state["joystick_active"]:
                     was_tracking = False
-        else:
-            latest_frame = None
-            worker_state["last_command"] = "System: Video Stream Offline or Unreachable"
-                
-        time.sleep(worker_state["loop_delay"] / 1000.0)
+                    time.sleep(worker_state["loop_delay"] / 1000.0)
+                    continue 
+                    
+                if worker_state["tracking_active"]:
+                    was_tracking = True
+                    pan_pid.Kp = tilt_pid.Kp = worker_state["p"]
+                    pan_pid.Ki = tilt_pid.Ki = worker_state["i"]
+                    pan_pid.Kd = tilt_pid.Kd = worker_state["d"]
+                    pan_pid.deadband = tilt_pid.deadband = worker_state["deadband"]
+
+                    pan_output = pan_pid.update(err_x, dt)
+                    tilt_output = tilt_pid.update(err_y, dt)
+                    
+                    dir_parts = []
+                    if tilt_output > 0: dir_parts.append("down")
+                    elif tilt_output < 0: dir_parts.append("up")
+                    if pan_output > 0: dir_parts.append("right")
+                    elif pan_output < 0: dir_parts.append("left")
+                    
+                    direction = "_".join(dir_parts) if dir_parts else "stop"
+                    p_speed = 0 if direction == "stop" else min(24, max(1, int(abs(pan_output))))
+                    t_speed = 0 if direction == "stop" else min(20, max(1, int(abs(tilt_output))))
+                    
+                    if cam: 
+                        cam.move(p_speed, t_speed, direction)
+                        if direction == "stop": worker_state["last_command"] = "Auto: Locked on target"
+                        else: worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
+                else:
+                    if was_tracking:
+                        if cam: cam.move(0, 0, "stop")
+                        worker_state["last_command"] = "Auto: Standby"
+                        was_tracking = False
+            else:
+                latest_frame = None
+                worker_state["last_command"] = "System: Video Stream Offline or Unreachable"
+                    
+            time.sleep(worker_state["loop_delay"] / 1000.0)
+            
+        except Exception as e:
+            print(f"[WORKER 2] Math loop recovered from internal error: {e}")
+            time.sleep(1.0)
 
 def generate_frames():
     global latest_frame
