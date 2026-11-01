@@ -1,20 +1,38 @@
 [
-  {
-    "cue_number": 1,
-    "obs_scene": "Cam 1 Wide",
-    "camera_id": "cam_1",
-    "action": "preset_1",
-    "settle_time_sec": 4.0,
-    "live_duration_sec": 10.0,
-    "is_moving_shot": false
-  },
-  {
-    "cue_number": 2,
-    "obs_scene": "Cam 1 Tight",
-    "camera_id": "cam_1",
-    "action": "track_face",
-    "settle_time_sec": 4.0,
-    "live_duration_sec": 15.0,
-    "is_moving_shot": true
-  }
+    {
+        "cue_number": 1,
+        "obs_scene": "Cam 1 Wide",
+        "camera_id": "cam_1",
+        "action": "preset_1",
+        "settle_time_sec": 4,
+        "live_duration_sec": 15,
+        "is_moving_shot": false
+    },
+    {
+        "cue_number": 2,
+        "obs_scene": "Cam 1 Tight",
+        "camera_id": "cam_1",
+        "action": "preset_2",
+        "settle_time_sec": 4,
+        "live_duration_sec": 15,
+        "is_moving_shot": false
+    },
+    {
+        "enabled": true,
+        "obs_scene": "New Scene",
+        "camera_id": "cam_1",
+        "action": "preset_3",
+        "settle_time_sec": 4,
+        "live_duration_sec": 15,
+        "is_moving_shot": false
+    },
+    {
+        "enabled": true,
+        "obs_scene": "New Scene",
+        "camera_id": "cam_1",
+        "action": "track_face",
+        "settle_time_sec": 4,
+        "live_duration_sec": 15,
+        "is_moving_shot": true
+    }
 ]
