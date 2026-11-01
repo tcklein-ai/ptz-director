@@ -101,6 +101,9 @@ def vision_loop():
                     if cam: cam.move(0, 0, "stop")
                     worker_state["last_command"] = "Auto: Standby"
                     was_tracking = False
+        else:
+            latest_frame = None
+            worker_state["last_command"] = "System: Video Stream Offline or Unreachable"
                 
         time.sleep(worker_state["loop_delay"] / 1000.0)
 
@@ -110,7 +113,7 @@ def generate_frames():
         if latest_frame is not None:
             ret, buffer = cv2.imencode('.jpg', latest_frame)
             if ret: yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-        time.sleep(0.033) # Accelerated 30FPS UI broadcast
+        time.sleep(0.033)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -123,6 +126,7 @@ app = FastAPI(title="PTZ Worker 1", lifespan=lifespan)
 
 @app.get("/api/state")
 def get_state(): return worker_state
+
 @app.get("/api/video_feed")
 def video_feed(): return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
@@ -202,6 +206,21 @@ async def ptz_recall_preset(request: Request):
         worker_state["last_command"] = f"System: Recalled Preset {preset}"
     return {"status": "success"}
 
+@app.post("/api/target/set")
+async def set_target(request: Request):
+    data = await request.json()
+    if 'tracker' in globals() and hasattr(tracker, 'set_manual_target'):
+        tracker.set_manual_target(data.get("x_pct"), data.get("y_pct"))
+        worker_state["last_command"] = "System: Target Manually Locked"
+    return {"status": "success"}
+
+@app.post("/api/target/clear")
+def clear_target():
+    if 'tracker' in globals() and hasattr(tracker, 'clear_target'):
+        tracker.clear_target()
+        worker_state["last_command"] = "System: Target Cleared"
+    return {"status": "success"}
+
 @app.post("/api/action")
 async def execute_director_action(request: Request):
     global cam
@@ -220,26 +239,11 @@ async def execute_director_action(request: Request):
         try:
             preset_num = int(action.split("_")[1])
             if cam: cam.recall_preset(preset_num)
-            worker_state["last_command"] = f"Director: {label} [Preset {preset_num}]" if label else f"Director: Recalling Preset {preset_num}"
+            worker_state["last_command"] = f"Director: {label} [Preset {preset_num}]" if label else f"Director: Recalled Preset {preset_num}"
         except: pass
     else:
         worker_state["tracking_active"] = False
         if cam: cam.move(0, 0, "stop")
-    return {"status": "success"}
-
-@app.post("/api/target/set")
-async def set_target(request: Request):
-    data = await request.json()
-    if 'tracker' in globals() and hasattr(tracker, 'set_manual_target'):
-        tracker.set_manual_target(data.get("x_pct"), data.get("y_pct"))
-        worker_state["last_command"] = "System: Target Manually Locked"
-    return {"status": "success"}
-
-@app.post("/api/target/clear")
-def clear_target():
-    if 'tracker' in globals() and hasattr(tracker, 'clear_target'):
-        tracker.clear_target()
-        worker_state["last_command"] = "System: Target Cleared"
     return {"status": "success"}
 
 if __name__ == "__main__":

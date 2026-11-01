@@ -15,7 +15,6 @@ class SceneDirector:
         self.current_cue_idx = 0
         self.skip_flag = False
         
-        # NEW: Timer State
         self.phase = "IDLE"
         self.timer_duration = 0.0
         self.timer_elapsed = 0.0
@@ -74,6 +73,35 @@ class SceneDirector:
         try: requests.post(f"{worker_url}/api/action", json=payload, timeout=1.0)
         except: pass
 
+    def _prep_off_air_cameras(self, live_cue_idx):
+        """Scans ahead in the sequence and moves off-air cameras to their next positions."""
+        if not self.cues: return
+        
+        live_cue = self.cues[live_cue_idx]
+        live_cam = live_cue.get('camera_id', 'cam_1')
+        
+        # Track which cameras we've already prepped so we only grab their CLOSEST upcoming shot
+        prepped_cams = set([live_cam]) 
+        
+        # Scan forward, wrapping around the sequence for loops
+        for offset in range(1, len(self.cues)):
+            search_idx = (live_cue_idx + offset) % len(self.cues)
+            next_cue = self.cues[search_idx]
+            
+            if not next_cue.get("enabled", True): 
+                continue
+                
+            next_cam = next_cue.get('camera_id', 'cam_1')
+            
+            if next_cam not in prepped_cams:
+                action = next_cue.get('action', 'preset_1')
+                scene = self.scene_lookup(next_cam) if self.scene_lookup else "Unknown"
+                
+                print(f"[DIRECTOR] ⏭️ EARLY PREP: Sending {next_cam} to {scene} (Off-Air)")
+                self._send_camera_action(next_cam, action, next_cue.get('is_moving_shot', False), label=f"Early Prep: {scene}")
+                
+                prepped_cams.add(next_cam)
+
     def _interruptible_sleep(self, duration_sec):
         self.timer_duration = float(duration_sec)
         self.timer_elapsed = 0.0
@@ -97,7 +125,7 @@ class SceneDirector:
             action = cue.get('action', 'preset_1')
             scene = self.scene_lookup(cam) if self.scene_lookup else "Unknown"
             
-            # Phase 1: SETTLING
+            # Phase 1: SETTLING (Re-fire the command just in case, acts as a guaranteed pre-roll delay)
             self.phase = "SETTLING"
             self._send_camera_action(cam, action, cue.get('is_moving_shot', False), label=f"Cue: {scene} (Settling)")
             settle = float(cue.get("settle_time_sec", 4.0))
@@ -112,6 +140,9 @@ class SceneDirector:
             self.phase = "LIVE ON AIR"
             if self.obs and self.obs.connected: self.obs.set_scene(scene)
             self._send_camera_action(cam, "status_only", False, label=f"Cue: {scene} (LIVE ON AIR)")
+            
+            # ---> NEW: Prep the off-air cameras the exact moment the active camera goes Live <---
+            self._prep_off_air_cameras(self.current_cue_idx)
                 
             live_time = float(cue.get("live_duration_sec", 10.0))
             self._interruptible_sleep(live_time)

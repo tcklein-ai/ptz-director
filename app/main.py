@@ -24,10 +24,12 @@ global_state = {
     
     "cam1_source": "0", "cam1_ip": "192.168.1.100", "cam1_port": 5678, "cam_1_obs_scene": "Cam 1 Wide", 
     "cam1_p": 0.005, "cam1_i": 0.000, "cam1_d": 0.010, "cam1_deadband": 60, "cam1_loop_delay": 33,
+    "cam1_presets": {"1": "Preset 1", "2": "Preset 2"},
     "cam1_error_x": 0, "cam1_error_y": 0, "cam1_tracking_active": False, "cam1_last_command": "Offline",
 
     "cam2_source": "1", "cam2_ip": "192.168.1.101", "cam2_port": 5678, "cam_2_obs_scene": "Cam 2 Wide", 
     "cam2_p": 0.005, "cam2_i": 0.000, "cam2_d": 0.010, "cam2_deadband": 60, "cam2_loop_delay": 33,
+    "cam2_presets": {"1": "Preset 1", "2": "Preset 2"},
     "cam2_error_x": 0, "cam2_error_y": 0, "cam2_tracking_active": False, "cam2_last_command": "Offline",
 }
 
@@ -46,26 +48,24 @@ def load_config():
 
 def save_config():
     keys = ["obs_host", "obs_port", "obs_password",
-            "cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband",
-            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband"]
+            "cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband", "cam1_presets",
+            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
     data = {k: global_state[k] for k in keys}
     with open(CONFIG_FILE, "w") as f: json.dump(data, f, indent=4)
 
 def push_config_to_workers():
-    # Push to Cam 1
     c1_payload = {
         "cam_ip": global_state["cam1_ip"], "cam_port": global_state["cam1_port"], "cam_source": global_state["cam1_source"],
         "p": global_state["cam1_p"], "i": global_state["cam1_i"], "d": global_state["cam1_d"], "deadband": global_state["cam1_deadband"]
     }
-    try: requests.post(f"{WORKERS['cam_1']}/api/config", json=c1_payload, timeout=0.5)
+    try: requests.post(f"{WORKERS['cam_1']}/api/config", json=c1_payload, timeout=2.0)
     except: pass
 
-    # Push to Cam 2
     c2_payload = {
         "cam_ip": global_state["cam2_ip"], "cam_port": global_state["cam2_port"], "cam_source": global_state["cam2_source"],
         "p": global_state["cam2_p"], "i": global_state["cam2_i"], "d": global_state["cam2_d"], "deadband": global_state["cam2_deadband"]
     }
-    try: requests.post(f"{WORKERS['cam_2']}/api/config", json=c2_payload, timeout=0.5)
+    try: requests.post(f"{WORKERS['cam_2']}/api/config", json=c2_payload, timeout=2.0)
     except: pass
 
 def get_cam_scene(cam_id):
@@ -90,19 +90,16 @@ def read_root(request: Request): return templates.TemplateResponse(request=reque
 
 @app.get("/api/state")
 def get_state():
-    # Poll Worker 1
     try:
         r1 = requests.get(f"{WORKERS['cam_1']}/api/state", timeout=0.2).json()
         global_state.update({"cam1_error_x": r1.get("error_x",0), "cam1_error_y": r1.get("error_y",0), "cam1_tracking_active": r1.get("tracking_active",False), "cam1_last_command": r1.get("last_command","Idle")})
     except: global_state.update({"cam1_last_command": "Worker 1 Offline"})
     
-    # Poll Worker 2
     try:
         r2 = requests.get(f"{WORKERS['cam_2']}/api/state", timeout=0.2).json()
         global_state.update({"cam2_error_x": r2.get("error_x",0), "cam2_error_y": r2.get("error_y",0), "cam2_tracking_active": r2.get("tracking_active",False), "cam2_last_command": r2.get("last_command","Idle")})
     except: global_state.update({"cam2_last_command": "Worker 2 Offline"})
         
-    # Poll Director Timers
     if director and director.is_running and director.cues:
         d_stat = director.get_status()
         current_cue = director.cues[director.current_cue_idx]
@@ -132,13 +129,18 @@ async def update_hub_config(request: Request):
             reconnect = True
     if reconnect and obs_manager: global_state["obs_connected"] = obs_manager.reconnect(global_state["obs_host"], int(global_state["obs_port"]), global_state["obs_password"])
 
-    keys = ["cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband",
-            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband"]
+    keys = ["cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband", "cam1_presets",
+            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
     for k in keys:
         if k in data:
-            if "_p" in k or "_i" in k or "_d" in k and "deadband" not in k: global_state[k] = float(data[k])
-            elif "deadband" in k or "port" in k: global_state[k] = int(data[k])
-            else: global_state[k] = str(data[k])
+            if k.endswith("_presets"):
+                global_state[k] = data[k]
+            elif k.endswith("_p") or k.endswith("_i") or k.endswith("_d"): 
+                global_state[k] = float(data[k])
+            elif k.endswith("_deadband") or k.endswith("_port"): 
+                global_state[k] = int(data[k])
+            else: 
+                global_state[k] = str(data[k])
             
     save_config()
     push_config_to_workers()
@@ -176,7 +178,6 @@ async def go_tour(request: Request):
     if director: director.trigger_cue(int(data.get("index", 0)))
     return {"status": "success"}
 
-# --- Dynamic Routed Proxy Endpoints ---
 def route_camera_command(endpoint: str, data: dict):
     cam = data.get("camera_id", "cam_1")
     url = WORKERS.get(cam)

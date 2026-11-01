@@ -12,16 +12,9 @@ from app.services.visca import PTZCamera
 worker_state = {
     "tracking_active": False,
     "joystick_active": False,
-    "error_x": 0,
-    "error_y": 0,
-    "p": 0.03, 
-    "i": 0.00, 
-    "d": 0.02, 
-    "deadband": 60, 
-    "loop_delay": 33,
-    "cam_ip": "192.168.1.101",
-    "cam_port": 5678,
-    "cam_source": "1", 
+    "error_x": 0, "error_y": 0,
+    "p": 0.03, "i": 0.00, "d": 0.02, "deadband": 60, "loop_delay": 33,
+    "cam_ip": "192.168.1.101", "cam_port": 5678, "cam_source": "1", 
     "last_command": "Idle"
 }
 
@@ -30,13 +23,8 @@ cam = None
 
 class PIDController:
     def __init__(self, p=0.03, i=0.0, d=0.01, deadband=60):
-        self.Kp = p
-        self.Ki = i
-        self.Kd = d
-        self.deadband = deadband
-        self.prev_error = 0
-        self.integral = 0
-        
+        self.Kp = p; self.Ki = i; self.Kd = d; self.deadband = deadband
+        self.prev_error = 0; self.integral = 0
     def update(self, error, dt):
         if abs(error) < self.deadband:
             self.integral = 0
@@ -58,15 +46,11 @@ def vision_loop():
     last_time = time.time()
     was_tracking = False 
     
-    print("[WORKER 2] Vision loop running on separate core.")
-    
     while True:
         if worker_state["cam_source"] != current_source:
             current_source = worker_state["cam_source"]
-            if hasattr(tracker, 'stop'): 
-                tracker.stop()
-            elif hasattr(tracker, 'cap'): 
-                tracker.cap.release()
+            if hasattr(tracker, 'stop'): tracker.stop()
+            elif hasattr(tracker, 'cap'): tracker.cap.release()
                 
             source_val = int(current_source) if str(current_source).isdigit() else current_source
             tracker = VisionTracker(source_val)
@@ -110,15 +94,16 @@ def vision_loop():
                 
                 if cam: 
                     cam.move(p_speed, t_speed, direction)
-                    if direction == "stop": 
-                        worker_state["last_command"] = "Auto: Locked on target"
-                    else: 
-                        worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
+                    if direction == "stop": worker_state["last_command"] = "Auto: Locked on target"
+                    else: worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
             else:
                 if was_tracking:
                     if cam: cam.move(0, 0, "stop")
                     worker_state["last_command"] = "Auto: Standby"
                     was_tracking = False
+        else:
+            latest_frame = None
+            worker_state["last_command"] = "System: Video Stream Offline or Unreachable"
                 
         time.sleep(worker_state["loop_delay"] / 1000.0)
 
@@ -127,9 +112,8 @@ def generate_frames():
     while True:
         if latest_frame is not None:
             ret, buffer = cv2.imencode('.jpg', latest_frame)
-            if ret: 
-                yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-        time.sleep(0.033) 
+            if ret: yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+        time.sleep(0.033)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -141,25 +125,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PTZ Worker 2", lifespan=lifespan)
 
 @app.get("/api/state")
-def get_state(): 
-    return worker_state
+def get_state(): return worker_state
 
 @app.get("/api/video_feed")
-def video_feed(): 
-    return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+def video_feed(): return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.post("/api/toggle")
 def toggle_tracking():
     worker_state["tracking_active"] = not worker_state["tracking_active"]
-    if not worker_state["tracking_active"]: 
-        worker_state["last_command"] = "System: Tracking Disabled"
+    if not worker_state["tracking_active"]: worker_state["last_command"] = "System: Tracking Disabled"
     return {"active": worker_state["tracking_active"]}
 
 @app.post("/api/config")
 async def update_config(request: Request):
     global cam
     data = await request.json()
-    
     new_ip = data.get("cam_ip", worker_state["cam_ip"])
     new_port = int(data.get("cam_port", worker_state["cam_port"]))
     
@@ -171,13 +151,9 @@ async def update_config(request: Request):
 
     for key in ["p", "i", "d", "deadband", "loop_delay", "cam_source"]:
         if key in data:
-            if key in ["p", "i", "d"]:
-                worker_state[key] = float(data[key])
-            elif key in ["deadband", "loop_delay"]:
-                worker_state[key] = int(data[key])
-            else:
-                worker_state[key] = str(data[key])
-            
+            if key in ["p", "i", "d"]: worker_state[key] = float(data[key])
+            elif key in ["deadband", "loop_delay"]: worker_state[key] = int(data[key])
+            else: worker_state[key] = str(data[key])
     return {"status": "success"}
 
 @app.post("/api/ptz/move")
@@ -255,7 +231,6 @@ async def execute_director_action(request: Request):
     if action == "status_only":
         worker_state["last_command"] = f"Director: {label}"
         return {"status": "success"}
-        
     if action == "track_face":
         worker_state["tracking_active"] = True
         worker_state["last_command"] = f"Director: {label} [Auto-Track]" if label else "Director: Engaging Auto-Track"
@@ -263,15 +238,12 @@ async def execute_director_action(request: Request):
         worker_state["tracking_active"] = False
         try:
             preset_num = int(action.split("_")[1])
-            if cam and hasattr(cam, 'recall_preset'):
-                cam.recall_preset(preset_num)
-                worker_state["last_command"] = f"Director: {label} [Preset {preset_num}]" if label else f"Director: Recalling Preset {preset_num}"
-        except Exception as e: 
-            pass
+            if cam: cam.recall_preset(preset_num)
+            worker_state["last_command"] = f"Director: {label} [Preset {preset_num}]" if label else f"Director: Recalled Preset {preset_num}"
+        except: pass
     else:
         worker_state["tracking_active"] = False
         if cam: cam.move(0, 0, "stop")
-        
     return {"status": "success"}
 
 if __name__ == "__main__":

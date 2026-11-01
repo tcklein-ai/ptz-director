@@ -48,8 +48,6 @@
         .terminal { background: #0a0a0a; border: 1px solid #333; border-radius: 5px; padding: 10px; font-family: monospace; font-size: 14px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #5bc0de; margin-top: 10px;}
         
         #cv-stream { cursor: crosshair; }
-        
-        /* NEW TIMER PROGRESS BAR */
         .progress-bg { background: #333; border-radius: 5px; height: 12px; overflow: hidden; margin-top: 15px; border: 1px solid #222;}
         .progress-fill { background: #5cb85c; height: 100%; width: 0%; transition: width 0.1s linear, background-color 0.3s; }
     </style>
@@ -64,7 +62,6 @@
     <!-- MAIN DASHBOARD: ROW 1 -->
     <div class="grid-container">
         
-        <!-- 1: Tour Controls & Timers -->
         <div class="card" style="border: 2px solid #0275d8;">
             <h2>Automated Tour</h2>
             <div style="background: #121212; padding: 15px; border-radius: 5px; border: 1px solid #333; margin-bottom: 20px;">
@@ -74,7 +71,6 @@
                 <h4 style="color:#aaa; margin-bottom:5px;">Up Next</h4>
                 <h4 id="tour-next-scene" class="text-warning" style="margin: 0; font-size: 18px;">--</h4>
                 
-                <!-- PROGRESS BAR -->
                 <div class="progress-bg"><div id="tour-progress" class="progress-fill"></div></div>
                 <p style="text-align: right; margin: 5px 0 0 0; color: #888; font-size: 14px; font-weight:bold;">
                     <span id="tour-timer-text">0.0</span>s remaining
@@ -83,7 +79,6 @@
             <button id="tourBtn" class="btn-blue" onclick="toggleTour()" style="padding: 20px; font-size: 20px;">▶ Start Auto-Tour</button>
         </div>
 
-        <!-- 2: Manual Override (Selectable Target Camera) -->
         <div class="card">
             <h2>Manual Override</h2>
             <select id="active-manual-cam" style="width: 100%; padding: 10px; background: #222; color: white; border: 1px solid #555; border-radius: 5px; margin-bottom: 20px; font-size: 16px;" onchange="updateVideoSrc()">
@@ -101,7 +96,6 @@
             </div>
         </div>
 
-        <!-- 3: Vision & Radar (Dynamically linked to the dropdown) -->
         <div class="card">
             <h2>Vision & Radar</h2>
             <button id="videoBtn" class="btn-off" onclick="toggleVideo()" style="margin-bottom: 15px;">Show Camera Preview</button>
@@ -181,8 +175,8 @@
                 </div>
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
-                        <h3 style="margin-top:0;">Virtual PTZ & Presets</h3>
-                        <div style="display: flex; gap: 15px;">
+                        <h3 style="margin-top:0;">Virtual PTZ</h3>
+                        <div style="display: flex; gap: 15px; justify-content: center;">
                             <div class="joystick-grid">
                                 <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_1','up')" onmouseup="ptzMove('cam_1','stop')">▲</button><div></div>
                                 <button class="joystick-btn" onmousedown="ptzMove('cam_1','left')" onmouseup="ptzMove('cam_1','stop')">◀</button>
@@ -196,13 +190,19 @@
                                 <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_1','out')" onmouseup="ptzZoom('cam_1','stop')">➖</button>
                             </div>
                         </div>
-                        <label>Preset Slot</label>
-                        <select id="cam1-preset-select" style="margin-bottom: 10px;">
-                            <option value="1">Preset 1</option><option value="2">Preset 2</option><option value="3">Preset 3</option><option value="4">Preset 4</option>
-                        </select>
-                        <div style="display: flex; gap: 10px;">
+                        <hr style="border-color:#444; margin: 15px 0;">
+                        <!-- NEW CUSTOM PRESET BUILDER UI -->
+                        <label>Recall Saved Preset</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <select id="cam1-preset-select" style="flex: 2;"></select>
                             <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset('cam_1')">Recall</button>
-                            <button class="btn-on" style="flex: 1;" onclick="ptzSavePreset('cam_1')">Save</button>
+                            <button class="btn-off" style="width: 40px; padding: 0;" onclick="deleteCustomPreset('cam_1')" title="Delete Preset">X</button>
+                        </div>
+                        <label>Save / Overwrite Custom Preset</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="cam1-preset-id" min="1" max="254" value="1" style="flex: 1;" placeholder="ID (1-254)">
+                            <input type="text" id="cam1-preset-name" value="Preset 1" style="flex: 2;" placeholder="Name (e.g., Wide)">
+                            <button class="btn-on" style="flex: 1;" onclick="saveCustomPreset('cam_1')">Save</button>
                         </div>
                     </div>
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
@@ -243,8 +243,8 @@
                 </div>
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
-                        <h3 style="margin-top:0;">Virtual PTZ & Presets</h3>
-                        <div style="display: flex; gap: 15px;">
+                        <h3 style="margin-top:0;">Virtual PTZ</h3>
+                        <div style="display: flex; gap: 15px; justify-content: center;">
                             <div class="joystick-grid">
                                 <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_2','up')" onmouseup="ptzMove('cam_2','stop')">▲</button><div></div>
                                 <button class="joystick-btn" onmousedown="ptzMove('cam_2','left')" onmouseup="ptzMove('cam_2','stop')">◀</button>
@@ -258,13 +258,19 @@
                                 <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_2','out')" onmouseup="ptzZoom('cam_2','stop')">➖</button>
                             </div>
                         </div>
-                        <label>Preset Slot</label>
-                        <select id="cam2-preset-select" style="margin-bottom: 10px;">
-                            <option value="1">Preset 1</option><option value="2">Preset 2</option><option value="3">Preset 3</option><option value="4">Preset 4</option>
-                        </select>
-                        <div style="display: flex; gap: 10px;">
+                        <hr style="border-color:#444; margin: 15px 0;">
+                        <!-- NEW CUSTOM PRESET BUILDER UI -->
+                        <label>Recall Saved Preset</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <select id="cam2-preset-select" style="flex: 2;"></select>
                             <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset('cam_2')">Recall</button>
-                            <button class="btn-on" style="flex: 1;" onclick="ptzSavePreset('cam_2')">Save</button>
+                            <button class="btn-off" style="width: 40px; padding: 0;" onclick="deleteCustomPreset('cam_2')" title="Delete Preset">X</button>
+                        </div>
+                        <label>Save / Overwrite Custom Preset</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="cam2-preset-id" min="1" max="254" value="1" style="flex: 1;" placeholder="ID (1-254)">
+                            <input type="text" id="cam2-preset-name" value="Preset 1" style="flex: 2;" placeholder="Name (e.g., Wide)">
+                            <button class="btn-on" style="flex: 1;" onclick="saveCustomPreset('cam_2')">Save</button>
                         </div>
                     </div>
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
@@ -307,9 +313,11 @@
     </div>
 
     <script>
-        // CORE UI LOGIC
+        window.cam1_presets = {"1": "Preset 1", "2": "Preset 2"};
+        window.cam2_presets = {"1": "Preset 1", "2": "Preset 2"};
+
         const modal = document.getElementById("settingsModal");
-        function openModal() { modal.style.display = "block"; loadOBSScenes(); }
+        function openModal() { modal.style.display = "block"; loadOBSScenes(); updatePresetDropdowns(); }
         function closeModal() { modal.style.display = "none"; }
         window.onclick = function(event) { if (event.target == modal) modal.style.display = "none"; }
         function openTab(evt, tabName) {
@@ -323,14 +331,56 @@
         }
         document.getElementById("defaultOpen").click();
 
-        // ROUTED ENDPOINTS (Extracts active camera from dropdown)
         function getActiveCam() { return document.getElementById('active-manual-cam').value; }
         
         function toggleTracking() { fetch('/api/toggle', {method: 'POST', headers:{'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam()}) }); }
         function ptzMove(cam, dir) { fetch('/api/ptz/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
         function ptzZoom(cam, dir) { fetch('/api/ptz/zoom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
-        function ptzSavePreset(cam) { fetch('/api/ptz/save_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: document.getElementById(cam.replace('_','') + '-preset-select').value})}); alert("Preset Saved."); }
-        function ptzRecallPreset(cam) { fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: document.getElementById(cam.replace('_','') + '-preset-select').value})}); }
+        
+        // NEW: Dynamic Preset Management
+        function ptzRecallPreset(cam) { 
+            const id = document.getElementById(cam.replace('_','') + '-preset-select').value;
+            if(id) fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: parseInt(id)})}); 
+        }
+        
+        function saveCustomPreset(cam) {
+            const prefix = cam.replace('_','');
+            const id = document.getElementById(prefix + '-preset-id').value;
+            const name = document.getElementById(prefix + '-preset-name').value;
+            if(!id || !name) return alert("Enter an ID and a Name.");
+            
+            fetch('/api/ptz/save_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: parseInt(id)})});
+            
+            window[`${prefix}_presets`][id] = name;
+            saveHubConfig();
+            updatePresetDropdowns();
+            renderSequenceTable();
+            alert("Preset Saved: " + name);
+        }
+
+        function deleteCustomPreset(cam) {
+            const prefix = cam.replace('_','');
+            const id = document.getElementById(prefix + '-preset-select').value;
+            if(!id) return;
+            delete window[`${prefix}_presets`][id];
+            saveHubConfig();
+            updatePresetDropdowns();
+            renderSequenceTable();
+        }
+
+        function updatePresetDropdowns() {
+            ['1', '2'].forEach(c => {
+                const select = document.getElementById(`cam${c}-preset-select`);
+                if(!select) return;
+                const currentVal = select.value;
+                select.innerHTML = '';
+                const dict = window[`cam${c}_presets`] || {};
+                for(const [id, name] of Object.entries(dict)) {
+                    select.innerHTML += `<option value="${id}">${name} (ID: ${id})</option>`;
+                }
+                if(dict[currentVal]) select.value = currentVal;
+            });
+        }
         
         function setManualTarget(event) {
             const img = event.target;
@@ -338,7 +388,6 @@
         }
         function clearTarget() { fetch('/api/target/clear', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam()}) }); }
 
-        // OBS & CONFIGURATIONS
         function connectOBS() { fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value}) }).then(() => setTimeout(loadOBSScenes, 1000)); }
 
         function loadOBSScenes() {
@@ -370,9 +419,11 @@
                 
                 cam1_source: document.getElementById('cam1-source').value, cam1_ip: document.getElementById('cam1-ip').value, cam1_port: document.getElementById('cam1-port').value, cam_1_obs_scene: document.getElementById('cam1-obs-scene').value,
                 cam1_p: document.getElementById('cam1-p').value, cam1_i: document.getElementById('cam1-i').value, cam1_d: document.getElementById('cam1-d').value, cam1_deadband: document.getElementById('cam1-deadband').value,
+                cam1_presets: window.cam1_presets,
                 
                 cam2_source: document.getElementById('cam2-source').value, cam2_ip: document.getElementById('cam2-ip').value, cam2_port: document.getElementById('cam2-port').value, cam_2_obs_scene: document.getElementById('cam2-obs-scene').value,
-                cam2_p: document.getElementById('cam2-p').value, cam2_i: document.getElementById('cam2-i').value, cam2_d: document.getElementById('cam2-d').value, cam2_deadband: document.getElementById('cam2-deadband').value
+                cam2_p: document.getElementById('cam2-p').value, cam2_i: document.getElementById('cam2-i').value, cam2_d: document.getElementById('cam2-d').value, cam2_deadband: document.getElementById('cam2-deadband').value,
+                cam2_presets: window.cam2_presets
             };
             
             document.getElementById('val1-p').innerText = parseFloat(payload.cam1_p).toFixed(3); document.getElementById('val1-i').innerText = parseFloat(payload.cam1_i).toFixed(4);
@@ -384,19 +435,30 @@
             fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         }
 
-        // SEQUENCE LOGIC
         let sequenceData = [];
         loadSequence();
         function loadSequence() { fetch('/api/tour').then(r => r.json()).then(data => { sequenceData = data; renderSequenceTable(); }); }
+        
+        // NEW: Dynamic Sequence Table Action list based on custom names
         function renderSequenceTable() {
             const tbody = document.getElementById('seq-body'); tbody.innerHTML = '';
             sequenceData.forEach((cue, index) => {
+                
+                let actHtml = `<option value="track_face" ${cue.action == 'track_face' ? 'selected' : ''}>Auto-Track</option>`;
+                const dict = cue.camera_id === 'cam_1' ? window.cam1_presets : window.cam2_presets;
+                if(dict) {
+                    for (const [id, name] of Object.entries(dict)) {
+                        const val = `preset_${id}`;
+                        actHtml += `<option value="${val}" ${cue.action == val ? 'selected' : ''}>${name}</option>`;
+                    }
+                }
+                
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><button class="btn-small btn-settings" onclick="moveCue(${index}, -1)">▲</button> <button class="btn-small btn-settings" onclick="moveCue(${index}, 1)">▼</button></td>
                     <td><input type="checkbox" style="transform: scale(1.3);" onchange="updateCue(${index}, 'enabled', this.checked)" ${cue.enabled !== false ? 'checked' : ''}></td>
                     <td><select class="seq-input" onchange="updateCue(${index}, 'camera_id', this.value)"><option value="cam_1" ${cue.camera_id == 'cam_1' ? 'selected' : ''}>Cam 1</option><option value="cam_2" ${cue.camera_id == 'cam_2' ? 'selected' : ''}>Cam 2</option></select></td>
-                    <td><select class="seq-input" onchange="updateCue(${index}, 'action', this.value)"><option value="track_face" ${cue.action == 'track_face' ? 'selected' : ''}>Auto-Track</option><option value="preset_1" ${cue.action == 'preset_1' ? 'selected' : ''}>Preset 1</option><option value="preset_2" ${cue.action == 'preset_2' ? 'selected' : ''}>Preset 2</option><option value="preset_3" ${cue.action == 'preset_3' ? 'selected' : ''}>Preset 3</option><option value="preset_4" ${cue.action == 'preset_4' ? 'selected' : ''}>Preset 4</option></select></td>
+                    <td><select class="seq-input" onchange="updateCue(${index}, 'action', this.value)">${actHtml}</select></td>
                     <td><input type="number" class="seq-input" value="${cue.settle_time_sec || 4}" onchange="updateCue(${index}, 'settle_time_sec', this.value)"></td>
                     <td><input type="number" class="seq-input" value="${cue.live_duration_sec || 15}" onchange="updateCue(${index}, 'live_duration_sec', this.value)"></td>
                     <td><button class="btn-small btn-on" style="padding: 8px 15px; font-weight: bold;" onclick="goCue(${index})">GO 🎯</button></td>
@@ -405,7 +467,12 @@
             });
         }
         function addSeqRow() { sequenceData.push({ enabled: true, camera_id: "cam_1", action: "preset_1", settle_time_sec: 4, live_duration_sec: 15, is_moving_shot: false }); renderSequenceTable(); }
-        function updateCue(index, field, value) { if (field === 'settle_time_sec' || field === 'live_duration_sec') value = parseFloat(value); sequenceData[index][field] = value; if (field === 'action') sequenceData[index].is_moving_shot = (value === 'track_face'); }
+        function updateCue(index, field, value) { 
+            if (field === 'settle_time_sec' || field === 'live_duration_sec') value = parseFloat(value); 
+            sequenceData[index][field] = value; 
+            if (field === 'action') sequenceData[index].is_moving_shot = (value === 'track_face'); 
+            if (field === 'camera_id') renderSequenceTable(); // Re-render to swap preset list
+        }
         function moveCue(index, dir) { if (index + dir < 0 || index + dir >= sequenceData.length) return; const temp = sequenceData[index]; sequenceData[index] = sequenceData[index + dir]; sequenceData[index + dir] = temp; renderSequenceTable(); }
         function deleteCue(index) { sequenceData.splice(index, 1); renderSequenceTable(); }
         function saveSequence() { fetch('/api/tour', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(sequenceData)}).then(() => alert('Sequence saved.')); }
@@ -413,7 +480,6 @@
         function toggleTour() { fetch('/api/tour/toggle', {method: 'POST'}); }
         function goCue(index) { fetch('/api/tour/go', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({index: index}) }); }
 
-        // DYNAMIC VIDEO PREVIEW
         let showVideo = false;
         function toggleVideo() {
             showVideo = !showVideo; 
@@ -438,7 +504,6 @@
             }
         }
         
-        // POLLING LOOP
         const canvas = document.getElementById('radar'); const ctx = canvas.getContext('2d');
         function drawRadar(errX, errY, currentDb) {
             ctx.clearRect(0, 0, canvas.width, canvas.height); const cx = canvas.width / 2, cy = canvas.height / 2;
@@ -453,7 +518,12 @@
         setInterval(() => {
             fetch('/api/state').then(r => r.json()).then(data => {
                 
-                // Route Telemetry to the Dropdown Selection
+                // NEW: Sync preset dictionaries silently in the background
+                let dictsChanged = false;
+                if(JSON.stringify(window.cam1_presets) !== JSON.stringify(data.cam1_presets || {})) { window.cam1_presets = data.cam1_presets || {}; dictsChanged = true; }
+                if(JSON.stringify(window.cam2_presets) !== JSON.stringify(data.cam2_presets || {})) { window.cam2_presets = data.cam2_presets || {}; dictsChanged = true; }
+                if(dictsChanged) { updatePresetDropdowns(); renderSequenceTable(); }
+
                 const selCam = getActiveCam();
                 const camPrefix = selCam.replace('_', '');
                 
@@ -471,14 +541,12 @@
                     document.getElementById('status').innerText = "Tracking Standby"; document.getElementById('status').className = "text-danger"; 
                 }
                 
-                // General Status Updates
                 document.getElementById('current-scene').innerText = data.current_scene;
                 document.getElementById('obs-conn-status').innerText = data.obs_connected ? "Connected" : "Disconnected";
                 document.getElementById('obs-conn-status').className = data.obs_connected ? "text-success" : "text-danger";
                 document.getElementById('tour-live-scene').innerText = data.tour_live_scene || "--";
                 document.getElementById('tour-next-scene').innerText = data.tour_next_scene || "--";
                 
-                // Progress Bar Math
                 const tourBtn = document.getElementById('tourBtn');
                 if (data.tour_active) { 
                     tourBtn.className = "btn-off"; tourBtn.innerText = "⏹ Stop Auto-Tour";
