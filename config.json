@@ -1,13 +1,14 @@
 {
-    "p": 0.05,
-    "i": 0.0,
-    "d": 0.02,
-    "deadband": 40,
+    "p": 0.002,
+    "i": 0.0003,
+    "d": 0.003,
+    "deadband": 50,
     "loop_delay": 50,
     "obs_host": "192.168.1.206",
-    "obs_port": 4455,
+    "obs_port": "4455",
     "obs_password": "JesusisLord",
     "cam_ip": "192.168.1.28",
     "cam_port": 5678,
-    "cam_source": "rtsp://192.168.1.28/live/av0"
+    "cam_source": "rtsp://192.168.1.28/live/av0",
+    "cam_1_obs_scene": "Cam 1 Wide"
 }

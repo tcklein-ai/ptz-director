@@ -2,53 +2,65 @@ import obsws_python as obs
 
 class OBSManager:
     def __init__(self, host='localhost', port=4455, password='', on_scene_change=None):
-        """Initializes the connection to the OBS WebSocket server."""
         self.host = host
         self.port = port
         self.password = password
         self.on_scene_change = on_scene_change
-        self.req = None
-        self.event = None
+        self.client = None
+        self.event_client = None
         self.connected = False
         self.connect()
 
     def connect(self):
-        self.disconnect() # Clean up any existing connection first
         try:
-            self.req = obs.ReqClient(host=self.host, port=self.port, password=self.password, timeout=3)
-            self.event = obs.EventClient(host=self.host, port=self.port, password=self.password)
-            self.event.callback.register([self.on_current_program_scene_changed])
+            self.client = obs.ReqClient(host=self.host, port=self.port, password=self.password, timeout=3)
+            self.event_client = obs.EventClient(host=self.host, port=self.port, password=self.password, timeout=3)
+            self.event_client.callback.register(self.on_event)
             self.connected = True
             print(f"Successfully connected to OBS WebSocket at {self.host}:{self.port}")
-            return True
         except Exception as e:
             self.connected = False
-            print(f"Failed to connect to OBS at {self.host}:{self.port}. Error: {e}")
-            return False
+            print(f"Failed to connect to OBS: {e}")
+
+    def disconnect(self):
+        if self.event_client:
+            try: self.event_client.disconnect()
+            except: pass
+        self.connected = False
 
     def reconnect(self, host, port, password):
-        """Allows the web UI to inject new connection settings dynamically."""
+        self.disconnect()
         self.host = host
         self.port = port
         self.password = password
-        return self.connect()
+        self.connect()
+        return self.connected
 
-    def on_current_program_scene_changed(self, data):
-        scene_name = data.scene_name
-        if self.on_scene_change:
-            self.on_scene_change(scene_name)
+    def on_event(self, data):
+        if data.name == "CurrentProgramSceneChanged":
+            if self.on_scene_change:
+                scene_name = getattr(data, 'scene_name', 'Unknown')
+                self.on_scene_change(scene_name)
 
-    def set_scene(self, scene_name: str):
-        if self.req:
+    def set_scene(self, scene_name):
+        if self.connected and self.client:
             try:
-                self.req.set_current_program_scene(scene_name)
+                self.client.set_current_program_scene(scene_name)
             except Exception as e:
-                print(f"Failed to change scene '{scene_name}'. Error: {e}")
+                print(f"Error setting OBS scene: {e}")
 
-    def disconnect(self):
-        if self.event:
+    def get_scenes(self):
+        """NEW: Fetches the list of all available scenes from OBS."""
+        if self.connected and self.client:
             try:
-                self.event.disconnect()
-            except:
-                pass
-        self.connected = False
+                resp = self.client.get_scene_list()
+                scenes = []
+                for s in getattr(resp, 'scenes', []):
+                    if isinstance(s, dict):
+                        scenes.append(s.get('sceneName', s.get('scene_name', '')))
+                    else:
+                        scenes.append(getattr(s, 'sceneName', getattr(s, 'scene_name', '')))
+                return [s for s in scenes if s]
+            except Exception as e:
+                print(f"Error fetching OBS scenes: {e}")
+        return []
