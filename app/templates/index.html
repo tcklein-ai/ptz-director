@@ -66,15 +66,19 @@
             <h2>Automated Tour</h2>
             <div style="background: #121212; padding: 15px; border-radius: 5px; border: 1px solid #333; margin-bottom: 20px;">
                 <h4 style="color:#aaa; margin-bottom:5px;">Currently Live</h4>
-                <h3 id="tour-live-scene" class="text-danger" style="margin: 0; font-size: 24px;">--</h3>
+                <h3 id="tour-live-scene" class="text-danger" style="margin: 0; font-size: 20px;">--</h3>
                 <hr style="border-color: #333; margin: 15px 0;">
                 <h4 style="color:#aaa; margin-bottom:5px;">Up Next</h4>
-                <h4 id="tour-next-scene" class="text-warning" style="margin: 0; font-size: 18px;">--</h4>
+                <h4 id="tour-next-scene" class="text-warning" style="margin: 0; font-size: 16px;">--</h4>
                 
                 <div class="progress-bg"><div id="tour-progress" class="progress-fill"></div></div>
-                <p style="text-align: right; margin: 5px 0 0 0; color: #888; font-size: 14px; font-weight:bold;">
-                    <span id="tour-timer-text">0.0</span>s remaining
-                </p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <!-- ABORT INDICATOR -->
+                    <h4 id="tour-error-text" class="text-danger" style="margin: 5px 0 0 0; text-align: left; display: none;"></h4>
+                    <p style="text-align: right; margin: 5px 0 0 auto; color: #888; font-size: 14px; font-weight:bold;">
+                        <span id="tour-timer-text">0.0</span>s remaining
+                    </p>
+                </div>
             </div>
             <button id="tourBtn" class="btn-blue" onclick="toggleTour()" style="padding: 20px; font-size: 20px;">▶ Start Auto-Tour</button>
         </div>
@@ -120,7 +124,7 @@
         <table id="seq-table">
             <thead>
                 <tr>
-                    <th width="80">Order</th>
+                    <th width="100"># (Order)</th>
                     <th width="60">Active</th>
                     <th width="150">Camera</th>
                     <th>Action</th>
@@ -191,7 +195,6 @@
                             </div>
                         </div>
                         <hr style="border-color:#444; margin: 15px 0;">
-                        <!-- NEW CUSTOM PRESET BUILDER UI -->
                         <label>Recall Saved Preset</label>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <select id="cam1-preset-select" style="flex: 2;"></select>
@@ -259,7 +262,6 @@
                             </div>
                         </div>
                         <hr style="border-color:#444; margin: 15px 0;">
-                        <!-- NEW CUSTOM PRESET BUILDER UI -->
                         <label>Recall Saved Preset</label>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <select id="cam2-preset-select" style="flex: 2;"></select>
@@ -337,7 +339,6 @@
         function ptzMove(cam, dir) { fetch('/api/ptz/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
         function ptzZoom(cam, dir) { fetch('/api/ptz/zoom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
         
-        // NEW: Dynamic Preset Management
         function ptzRecallPreset(cam) { 
             const id = document.getElementById(cam.replace('_','') + '-preset-select').value;
             if(id) fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: parseInt(id)})}); 
@@ -348,14 +349,9 @@
             const id = document.getElementById(prefix + '-preset-id').value;
             const name = document.getElementById(prefix + '-preset-name').value;
             if(!id || !name) return alert("Enter an ID and a Name.");
-            
             fetch('/api/ptz/save_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: parseInt(id)})});
-            
             window[`${prefix}_presets`][id] = name;
-            saveHubConfig();
-            updatePresetDropdowns();
-            renderSequenceTable();
-            alert("Preset Saved: " + name);
+            saveHubConfig(); updatePresetDropdowns(); renderSequenceTable(); alert("Preset Saved: " + name);
         }
 
         function deleteCustomPreset(cam) {
@@ -363,9 +359,7 @@
             const id = document.getElementById(prefix + '-preset-select').value;
             if(!id) return;
             delete window[`${prefix}_presets`][id];
-            saveHubConfig();
-            updatePresetDropdowns();
-            renderSequenceTable();
+            saveHubConfig(); updatePresetDropdowns(); renderSequenceTable();
         }
 
         function updatePresetDropdowns() {
@@ -439,7 +433,6 @@
         loadSequence();
         function loadSequence() { fetch('/api/tour').then(r => r.json()).then(data => { sequenceData = data; renderSequenceTable(); }); }
         
-        // NEW: Dynamic Sequence Table Action list based on custom names
         function renderSequenceTable() {
             const tbody = document.getElementById('seq-body'); tbody.innerHTML = '';
             sequenceData.forEach((cue, index) => {
@@ -455,7 +448,13 @@
                 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><button class="btn-small btn-settings" onclick="moveCue(${index}, -1)">▲</button> <button class="btn-small btn-settings" onclick="moveCue(${index}, 1)">▼</button></td>
+                    <td style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: bold; color: #5bc0de; margin-right: 5px;">${index + 1}</span>
+                        <div>
+                            <button class="btn-small btn-settings" onclick="moveCue(${index}, -1)">▲</button>
+                            <button class="btn-small btn-settings" onclick="moveCue(${index}, 1)">▼</button>
+                        </div>
+                    </td>
                     <td><input type="checkbox" style="transform: scale(1.3);" onchange="updateCue(${index}, 'enabled', this.checked)" ${cue.enabled !== false ? 'checked' : ''}></td>
                     <td><select class="seq-input" onchange="updateCue(${index}, 'camera_id', this.value)"><option value="cam_1" ${cue.camera_id == 'cam_1' ? 'selected' : ''}>Cam 1</option><option value="cam_2" ${cue.camera_id == 'cam_2' ? 'selected' : ''}>Cam 2</option></select></td>
                     <td><select class="seq-input" onchange="updateCue(${index}, 'action', this.value)">${actHtml}</select></td>
@@ -471,7 +470,7 @@
             if (field === 'settle_time_sec' || field === 'live_duration_sec') value = parseFloat(value); 
             sequenceData[index][field] = value; 
             if (field === 'action') sequenceData[index].is_moving_shot = (value === 'track_face'); 
-            if (field === 'camera_id') renderSequenceTable(); // Re-render to swap preset list
+            if (field === 'camera_id') renderSequenceTable(); 
         }
         function moveCue(index, dir) { if (index + dir < 0 || index + dir >= sequenceData.length) return; const temp = sequenceData[index]; sequenceData[index] = sequenceData[index + dir]; sequenceData[index + dir] = temp; renderSequenceTable(); }
         function deleteCue(index) { sequenceData.splice(index, 1); renderSequenceTable(); }
@@ -481,27 +480,15 @@
         function goCue(index) { fetch('/api/tour/go', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({index: index}) }); }
 
         let showVideo = false;
-        function toggleVideo() {
-            showVideo = !showVideo; 
-            updateVideoSrc();
-        }
+        function toggleVideo() { showVideo = !showVideo; updateVideoSrc(); }
         function updateVideoSrc() {
             const container = document.getElementById('video-container'); 
             const stream = document.getElementById('cv-stream'); 
             const btn = document.getElementById('videoBtn');
             const camId = getActiveCam();
             
-            if (showVideo) { 
-                stream.src = `/api/video_feed/${camId}`; 
-                container.style.display = "block"; 
-                btn.className = "btn-on"; 
-                btn.innerText = "Hide Camera Preview"; 
-            } else { 
-                stream.src = ""; 
-                container.style.display = "none"; 
-                btn.className = "btn-off"; 
-                btn.innerText = "Show Camera Preview"; 
-            }
+            if (showVideo) { stream.src = `/api/video_feed/${camId}`; container.style.display = "block"; btn.className = "btn-on"; btn.innerText = "Hide Camera Preview"; 
+            } else { stream.src = ""; container.style.display = "none"; btn.className = "btn-off"; btn.innerText = "Show Camera Preview"; }
         }
         
         const canvas = document.getElementById('radar'); const ctx = canvas.getContext('2d');
@@ -518,7 +505,6 @@
         setInterval(() => {
             fetch('/api/state').then(r => r.json()).then(data => {
                 
-                // NEW: Sync preset dictionaries silently in the background
                 let dictsChanged = false;
                 if(JSON.stringify(window.cam1_presets) !== JSON.stringify(data.cam1_presets || {})) { window.cam1_presets = data.cam1_presets || {}; dictsChanged = true; }
                 if(JSON.stringify(window.cam2_presets) !== JSON.stringify(data.cam2_presets || {})) { window.cam2_presets = data.cam2_presets || {}; dictsChanged = true; }
@@ -546,6 +532,15 @@
                 document.getElementById('obs-conn-status').className = data.obs_connected ? "text-success" : "text-danger";
                 document.getElementById('tour-live-scene').innerText = data.tour_live_scene || "--";
                 document.getElementById('tour-next-scene').innerText = data.tour_next_scene || "--";
+                
+                // ERROR & ABORT LOGIC
+                const errText = document.getElementById('tour-error-text');
+                if (data.tour_error) {
+                    errText.innerText = data.tour_error;
+                    errText.style.display = "block";
+                } else {
+                    errText.style.display = "none";
+                }
                 
                 const tourBtn = document.getElementById('tourBtn');
                 if (data.tour_active) { 

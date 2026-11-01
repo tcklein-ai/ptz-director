@@ -71,13 +71,30 @@ def push_config_to_workers():
 def get_cam_scene(cam_id):
     return global_state.get(f"{cam_id}_obs_scene", "Unknown")
 
+def get_action_label(cam_id, action):
+    if action == "track_face": return "Auto-Track"
+    if action.startswith("preset_"):
+        pid = action.split("_")[1]
+        presets = global_state.get(f"{cam_id.replace('_', '')}_presets", {})
+        return presets.get(pid, f"Preset {pid}")
+    return action
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     load_config()
     global obs_manager, director
     obs_manager = OBSManager(host=global_state["obs_host"], port=global_state["obs_port"], password=global_state["obs_password"], on_scene_change=lambda s: global_state.update({"current_scene": s}))
     global_state["obs_connected"] = obs_manager.connected
-    director = SceneDirector(config_path=TOUR_FILE, obs_manager=obs_manager, workers_map=WORKERS, scene_lookup_cb=get_cam_scene)
+    
+    # NEW: Pass current_scene_cb so Director can verify OBS state
+    director = SceneDirector(
+        config_path=TOUR_FILE, 
+        obs_manager=obs_manager, 
+        workers_map=WORKERS, 
+        scene_lookup_cb=get_cam_scene,
+        current_scene_cb=lambda: global_state.get("current_scene", "Unknown")
+    )
+    
     push_config_to_workers()
     yield
     if obs_manager: obs_manager.disconnect()
@@ -102,19 +119,35 @@ def get_state():
         
     if director and director.is_running and director.cues:
         d_stat = director.get_status()
-        current_cue = director.cues[director.current_cue_idx]
+        current_idx = director.current_cue_idx
+        current_cue = director.cues[current_idx]
         cam_id = current_cue.get("camera_id", "cam_1")
-        global_state["tour_live_scene"] = global_state.get(f"{cam_id}_obs_scene", "Unknown")
+        obs_scene = global_state.get(f"{cam_id}_obs_scene", "Unknown")
+        action_lbl = get_action_label(cam_id, current_cue.get("action", "preset_1"))
+        cam_name = cam_id.replace('_', ' ').title()
         
-        next_cam = director.cues[(director.current_cue_idx + 1) % len(director.cues)].get("camera_id", "cam_1")
-        global_state["tour_next_scene"] = global_state.get(f"{next_cam}_obs_scene", "Unknown")
+        global_state["tour_live_scene"] = f"#{current_idx + 1} | {cam_name} | {action_lbl} (OBS: {obs_scene})"
         
+        next_idx = (current_idx + 1) % len(director.cues)
+        for _ in range(len(director.cues)):
+            if director.cues[next_idx].get("enabled", True): break
+            next_idx = (next_idx + 1) % len(director.cues)
+            
+        next_cue = director.cues[next_idx]
+        next_cam = next_cue.get("camera_id", "cam_1")
+        next_obs = global_state.get(f"{next_cam}_obs_scene", "Unknown")
+        next_action_lbl = get_action_label(next_cam, next_cue.get("action", "preset_1"))
+        next_cam_name = next_cam.replace('_', ' ').title()
+        
+        global_state["tour_next_scene"] = f"#{next_idx + 1} | {next_cam_name} | {next_action_lbl} (OBS: {next_obs})"
         global_state["tour_active"] = True
         global_state["tour_phase"] = d_stat["phase"]
         global_state["tour_time_total"] = d_stat["timer_duration"]
         global_state["tour_time_rem"] = round(d_stat["timer_duration"] - d_stat["timer_elapsed"], 1)
+        global_state["tour_error"] = d_stat.get("error", "")
     else:
         global_state.update({"tour_live_scene": "--", "tour_next_scene": "--", "tour_active": False, "tour_phase": "IDLE", "tour_time_rem": 0.0, "tour_time_total": 1.0})
+        if director: global_state["tour_error"] = director.get_status().get("error", "")
     
     return global_state
 
@@ -133,14 +166,10 @@ async def update_hub_config(request: Request):
             "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
     for k in keys:
         if k in data:
-            if k.endswith("_presets"):
-                global_state[k] = data[k]
-            elif k.endswith("_p") or k.endswith("_i") or k.endswith("_d"): 
-                global_state[k] = float(data[k])
-            elif k.endswith("_deadband") or k.endswith("_port"): 
-                global_state[k] = int(data[k])
-            else: 
-                global_state[k] = str(data[k])
+            if k.endswith("_presets"): global_state[k] = data[k]
+            elif k.endswith("_p") or k.endswith("_i") or k.endswith("_d"): global_state[k] = float(data[k])
+            elif k.endswith("_deadband") or k.endswith("_port"): global_state[k] = int(data[k])
+            else: global_state[k] = str(data[k])
             
     save_config()
     push_config_to_workers()

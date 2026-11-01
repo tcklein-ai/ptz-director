@@ -8,7 +8,13 @@ os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp|fflags;nobuffe
 class VisionTracker:
     def __init__(self, source=0):
         self.source = source
-        self.cap = cv2.VideoCapture(self.source)
+        
+        # 1. FIX: Force the correct video backend based on source type
+        if isinstance(self.source, str) and self.source.startswith("rtsp"):
+            self.cap = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG)
+        else:
+            self.cap = cv2.VideoCapture(self.source, cv2.CAP_DSHOW)
+            
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         self.obj_tracker = None
@@ -30,6 +36,9 @@ class VisionTracker:
                 self.ret, frame = self.cap.read()
                 if self.ret:
                     self.latest_frame = frame
+                else:
+                    # 2. FIX: Throttle the loop so it doesn't spam MSMF errors if read fails
+                    time.sleep(0.033)
             else:
                 time.sleep(0.033)
 
@@ -47,7 +56,6 @@ class VisionTracker:
             except AttributeError: return cv2.TrackerMIL_create()
 
     def set_manual_target(self, x_pct, y_pct):
-        # NEW: Safely queues the UI click instead of hijacking the thread
         self.pending_target = (x_pct, y_pct)
 
     def clear_target(self):
@@ -63,7 +71,6 @@ class VisionTracker:
         center_y = int(height * 0.33)
         err_x, err_y = 0, 0
         
-        # --- Safely process queued UI commands on the correct thread ---
         if self.pending_clear:
             self.tracking_locked = False
             self.obj_tracker = None
@@ -84,7 +91,6 @@ class VisionTracker:
             self.obj_tracker.init(frame, (nx, ny, bw, bh))
             self.tracking_locked = True
         
-        # --- Run the Math ---
         if self.tracking_locked and self.obj_tracker is not None:
             try:
                 success, bbox = self.obj_tracker.update(frame)
