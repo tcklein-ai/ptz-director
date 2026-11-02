@@ -69,7 +69,8 @@ class SceneDirector:
                 action = cue.get('action', 'preset_1')
                 scene = self.scene_lookup(cam) if self.scene_lookup else "Unknown"
                 self._send_camera_action(cam, action, cue.get('is_moving_shot', False), label=f"Manual GO: {scene}")
-                if self.obs and self.obs.connected: self.obs.set_scene(scene)
+                if self.obs and self.obs.connected and scene != "Unknown": 
+                    self.obs.set_scene(scene)
                 self._send_camera_action(cam, "status_only", False, label=f"Manual GO: {scene} (LIVE ON AIR)")
 
     def _send_camera_action(self, camera_id, action, is_moving_shot, label=""):
@@ -132,10 +133,10 @@ class SceneDirector:
             
             # Phase 2: LIVE ON AIR
             self.phase = "LIVE ON AIR"
-            if self.obs and self.obs.connected: 
+            
+            if self.obs and self.obs.connected and scene != "Unknown": 
                 self.obs.set_scene(scene)
                 
-                # VERIFICATION: Wait up to 1.5 seconds for OBS to confirm the scene change
                 verify_time = 0.0
                 verified = False
                 while verify_time < 1.5 and self.is_running and not self.skip_flag:
@@ -151,20 +152,26 @@ class SceneDirector:
                     continue
             
             self._send_camera_action(cam, "status_only", False, label=f"Cue: {scene} (LIVE ON AIR)")
-            
-            # SAFETY GATED: Only prep off-air cameras AFTER OBS is verified on the safe scene
-            self._prep_off_air_cameras(self.current_cue_idx)
                 
             self.timer_duration = float(cue.get("live_duration_sec", 10.0))
             self.timer_elapsed = 0.0
             
+            prepped_off_air = False
+            
+            # Combined Timer Loop: Handles the delay, the off-air prep, and the external abort scan all at once
             while self.timer_elapsed < self.timer_duration and self.is_running and not self.skip_flag:
-                # EXTERNAL ABORT: If OBS changes while we are Live, abort the tour.
-                if self.obs and self.obs.connected and self.current_scene_cb:
+                
+                # External Abort Scan
+                if self.obs and self.obs.connected and self.current_scene_cb and scene != "Unknown":
                     if self.current_scene_cb() != scene:
                         self.tour_error = "ABORTED: External OBS scene change detected."
                         self.stop_tour()
                         break
+                
+                # Wait 1 full second into the Live shot before moving the off-air cameras
+                if not prepped_off_air and self.timer_elapsed >= 1.0:
+                    self._prep_off_air_cameras(self.current_cue_idx)
+                    prepped_off_air = True
                         
                 time.sleep(0.1)
                 self.timer_elapsed += 0.1

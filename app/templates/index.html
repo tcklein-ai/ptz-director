@@ -73,7 +73,6 @@
                 
                 <div class="progress-bg"><div id="tour-progress" class="progress-fill"></div></div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <!-- ABORT INDICATOR -->
                     <h4 id="tour-error-text" class="text-danger" style="margin: 5px 0 0 0; text-align: left; display: none;"></h4>
                     <p style="text-align: right; margin: 5px 0 0 auto; color: #888; font-size: 14px; font-weight:bold;">
                         <span id="tour-timer-text">0.0</span>s remaining
@@ -411,11 +410,13 @@
             const payload = {
                 obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value,
                 
-                cam1_source: document.getElementById('cam1-source').value, cam1_ip: document.getElementById('cam1-ip').value, cam1_port: document.getElementById('cam1-port').value, cam_1_obs_scene: document.getElementById('cam1-obs-scene').value,
+                // FIX: Send cam1_obs_scene to match backend
+                cam1_source: document.getElementById('cam1-source').value, cam1_ip: document.getElementById('cam1-ip').value, cam1_port: document.getElementById('cam1-port').value, cam1_obs_scene: document.getElementById('cam1-obs-scene').value,
                 cam1_p: document.getElementById('cam1-p').value, cam1_i: document.getElementById('cam1-i').value, cam1_d: document.getElementById('cam1-d').value, cam1_deadband: document.getElementById('cam1-deadband').value,
                 cam1_presets: window.cam1_presets,
                 
-                cam2_source: document.getElementById('cam2-source').value, cam2_ip: document.getElementById('cam2-ip').value, cam2_port: document.getElementById('cam2-port').value, cam_2_obs_scene: document.getElementById('cam2-obs-scene').value,
+                // FIX: Send cam2_obs_scene to match backend
+                cam2_source: document.getElementById('cam2-source').value, cam2_ip: document.getElementById('cam2-ip').value, cam2_port: document.getElementById('cam2-port').value, cam2_obs_scene: document.getElementById('cam2-obs-scene').value,
                 cam2_p: document.getElementById('cam2-p').value, cam2_i: document.getElementById('cam2-i').value, cam2_d: document.getElementById('cam2-d').value, cam2_deadband: document.getElementById('cam2-deadband').value,
                 cam2_presets: window.cam2_presets
             };
@@ -533,7 +534,6 @@
                 document.getElementById('tour-live-scene').innerText = data.tour_live_scene || "--";
                 document.getElementById('tour-next-scene').innerText = data.tour_next_scene || "--";
                 
-                // ERROR & ABORT LOGIC
                 const errText = document.getElementById('tour-error-text');
                 if (data.tour_error) {
                     errText.innerText = data.tour_error;
@@ -559,7 +559,7 @@
                     document.getElementById('cam1-source').value = data.cam1_source || "0";
                     document.getElementById('cam1-ip').value = data.cam1_ip || "192.168.1.100";
                     document.getElementById('cam1-port').value = data.cam1_port || 5678;
-                    document.getElementById('cam1-obs-scene').setAttribute('data-loaded-val', data.cam_1_obs_scene || "Cam 1 Wide");
+                    document.getElementById('cam1-obs-scene').setAttribute('data-loaded-val', data.cam1_obs_scene || "Cam 1 Wide");
                     document.getElementById('cam1-p').value = data.cam1_p;
                     document.getElementById('cam1-i').value = data.cam1_i;
                     document.getElementById('cam1-d').value = data.cam1_d;
@@ -568,7 +568,7 @@
                     document.getElementById('cam2-source').value = data.cam2_source || "1";
                     document.getElementById('cam2-ip').value = data.cam2_ip || "192.168.1.101";
                     document.getElementById('cam2-port').value = data.cam2_port || 5678;
-                    document.getElementById('cam2-obs-scene').setAttribute('data-loaded-val', data.cam_2_obs_scene || "Cam 2 Wide");
+                    document.getElementById('cam2-obs-scene').setAttribute('data-loaded-val', data.cam2_obs_scene || "Cam 2 Wide");
                     document.getElementById('cam2-p').value = data.cam2_p;
                     document.getElementById('cam2-i').value = data.cam2_i;
                     document.getElementById('cam2-d').value = data.cam2_d;

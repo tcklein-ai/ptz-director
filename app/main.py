@@ -22,12 +22,12 @@ global_state = {
     "current_scene": "Unknown",
     "obs_host": "localhost", "obs_port": 4455, "obs_password": "", "obs_connected": False,
     
-    "cam1_source": "0", "cam1_ip": "192.168.1.100", "cam1_port": 5678, "cam_1_obs_scene": "Cam 1 Wide", 
+    "cam1_source": "0", "cam1_ip": "192.168.1.100", "cam1_port": 5678, "cam1_obs_scene": "Cam 1 Wide", 
     "cam1_p": 0.005, "cam1_i": 0.000, "cam1_d": 0.010, "cam1_deadband": 60, "cam1_loop_delay": 33,
     "cam1_presets": {"1": "Preset 1", "2": "Preset 2"},
     "cam1_error_x": 0, "cam1_error_y": 0, "cam1_tracking_active": False, "cam1_last_command": "Offline",
 
-    "cam2_source": "1", "cam2_ip": "192.168.1.101", "cam2_port": 5678, "cam_2_obs_scene": "Cam 2 Wide", 
+    "cam2_source": "1", "cam2_ip": "192.168.1.101", "cam2_port": 5678, "cam2_obs_scene": "Cam 2 Wide", 
     "cam2_p": 0.005, "cam2_i": 0.000, "cam2_d": 0.010, "cam2_deadband": 60, "cam2_loop_delay": 33,
     "cam2_presets": {"1": "Preset 1", "2": "Preset 2"},
     "cam2_error_x": 0, "cam2_error_y": 0, "cam2_tracking_active": False, "cam2_last_command": "Offline",
@@ -43,13 +43,18 @@ def load_config():
             with open(CONFIG_FILE, "r") as f:
                 saved = json.load(f)
                 for k in saved:
-                    if k in global_state: global_state[k] = saved[k]
+                    if k == "cam_1_obs_scene":
+                        global_state["cam1_obs_scene"] = saved[k]
+                    elif k == "cam_2_obs_scene":
+                        global_state["cam2_obs_scene"] = saved[k]
+                    elif k in global_state: 
+                        global_state[k] = saved[k]
         except Exception: pass
 
 def save_config():
     keys = ["obs_host", "obs_port", "obs_password",
-            "cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband", "cam1_presets",
-            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
+            "cam1_source", "cam1_ip", "cam1_port", "cam1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband", "cam1_presets",
+            "cam2_source", "cam2_ip", "cam2_port", "cam2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
     data = {k: global_state[k] for k in keys}
     with open(CONFIG_FILE, "w") as f: json.dump(data, f, indent=4)
 
@@ -69,7 +74,11 @@ def push_config_to_workers():
     except: pass
 
 def get_cam_scene(cam_id):
-    return global_state.get(f"{cam_id}_obs_scene", "Unknown")
+    """Safely strips underscores and prevents empty strings from breaking OBS."""
+    prefix = cam_id.replace('_', '')
+    scene = global_state.get(f"{prefix}_obs_scene", "Unknown")
+    # Force 'Unknown' if the string is empty or just whitespace
+    return scene if scene and scene.strip() else "Unknown"
 
 def get_action_label(cam_id, action):
     if action == "track_face": return "Auto-Track"
@@ -86,7 +95,6 @@ async def lifespan(app: FastAPI):
     obs_manager = OBSManager(host=global_state["obs_host"], port=global_state["obs_port"], password=global_state["obs_password"], on_scene_change=lambda s: global_state.update({"current_scene": s}))
     global_state["obs_connected"] = obs_manager.connected
     
-    # NEW: Pass current_scene_cb so Director can verify OBS state
     director = SceneDirector(
         config_path=TOUR_FILE, 
         obs_manager=obs_manager, 
@@ -122,7 +130,8 @@ def get_state():
         current_idx = director.current_cue_idx
         current_cue = director.cues[current_idx]
         cam_id = current_cue.get("camera_id", "cam_1")
-        obs_scene = global_state.get(f"{cam_id}_obs_scene", "Unknown")
+        
+        obs_scene = get_cam_scene(cam_id)
         action_lbl = get_action_label(cam_id, current_cue.get("action", "preset_1"))
         cam_name = cam_id.replace('_', ' ').title()
         
@@ -135,7 +144,7 @@ def get_state():
             
         next_cue = director.cues[next_idx]
         next_cam = next_cue.get("camera_id", "cam_1")
-        next_obs = global_state.get(f"{next_cam}_obs_scene", "Unknown")
+        next_obs = get_cam_scene(next_cam)
         next_action_lbl = get_action_label(next_cam, next_cue.get("action", "preset_1"))
         next_cam_name = next_cam.replace('_', ' ').title()
         
@@ -162,8 +171,8 @@ async def update_hub_config(request: Request):
             reconnect = True
     if reconnect and obs_manager: global_state["obs_connected"] = obs_manager.reconnect(global_state["obs_host"], int(global_state["obs_port"]), global_state["obs_password"])
 
-    keys = ["cam1_source", "cam1_ip", "cam1_port", "cam_1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband", "cam1_presets",
-            "cam2_source", "cam2_ip", "cam2_port", "cam_2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
+    keys = ["cam1_source", "cam1_ip", "cam1_port", "cam1_obs_scene", "cam1_p", "cam1_i", "cam1_d", "cam1_deadband", "cam1_presets",
+            "cam2_source", "cam2_ip", "cam2_port", "cam2_obs_scene", "cam2_p", "cam2_i", "cam2_d", "cam2_deadband", "cam2_presets"]
     for k in keys:
         if k in data:
             if k.endswith("_presets"): global_state[k] = data[k]
@@ -241,7 +250,7 @@ async def ptz_zoom(request: Request):
     return {"status": "success"}
 
 @app.post("/api/ptz/save_preset")
-async def ptz_preset(request: Request):
+async def ptz_save_preset(request: Request):
     route_camera_command("/api/ptz/save_preset", await request.json())
     return {"status": "success"}
 

@@ -12,7 +12,7 @@
         "cue_number": 2,
         "obs_scene": "Cam 1 Tight",
         "camera_id": "cam_2",
-        "action": "preset_2",
+        "action": "preset_7",
         "settle_time_sec": 4,
         "live_duration_sec": 15,
         "is_moving_shot": false
@@ -29,14 +29,6 @@
     {
         "enabled": true,
         "camera_id": "cam_2",
-        "action": "preset_7",
-        "settle_time_sec": 4,
-        "live_duration_sec": 15,
-        "is_moving_shot": false
-    },
-    {
-        "enabled": true,
-        "camera_id": "cam_1",
         "action": "preset_1",
         "settle_time_sec": 4,
         "live_duration_sec": 15,
@@ -44,7 +36,7 @@
     },
     {
         "enabled": true,
-        "camera_id": "cam_2",
+        "camera_id": "cam_1",
         "action": "preset_3",
         "settle_time_sec": 4,
         "live_duration_sec": 15,
@@ -52,8 +44,16 @@
     },
     {
         "enabled": true,
-        "camera_id": "cam_1",
+        "camera_id": "cam_2",
         "action": "preset_1",
+        "settle_time_sec": 4,
+        "live_duration_sec": 15,
+        "is_moving_shot": false
+    },
+    {
+        "enabled": true,
+        "camera_id": "cam_1",
+        "action": "preset_7",
         "settle_time_sec": 4,
         "live_duration_sec": 15,
         "is_moving_shot": false
