@@ -24,22 +24,14 @@ tracker = None
 
 class PIDController:
     def __init__(self, p_min=0.005, p_max=0.030, i=0.0, d=0.01, deadband=60):
-        self.Kp_min = p_min
-        self.Kp_max = p_max
-        self.Ki = i
-        self.Kd = d
-        self.deadband = deadband
-        self.prev_error = 0
-        self.integral = 0
-        
+        self.Kp_min = p_min; self.Kp_max = p_max; self.Ki = i; self.Kd = d; self.deadband = deadband
+        self.prev_error = 0; self.integral = 0
     def update(self, error, dt, max_error):
         if abs(error) < self.deadband:
             self.integral = 0
             return 0
-            
         norm_e = min(1.0, abs(error) / max(1, max_error))
         dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * (norm_e ** 2)
-        
         self.integral += error * dt
         derivative = (error - self.prev_error) / dt
         self.prev_error = error
@@ -55,7 +47,10 @@ def vision_loop():
     pan_pid = PIDController()
     tilt_pid = PIDController()
     last_time = time.time()
-    was_tracking = False 
+    
+    last_p_speed = 0
+    last_t_speed = 0
+    last_direction = "stop"
     
     while True:
         try:
@@ -63,7 +58,6 @@ def vision_loop():
                 current_source = worker_state["cam_source"]
                 if hasattr(tracker, 'stop'): tracker.stop()
                 elif hasattr(tracker, 'cap'): tracker.cap.release()
-                    
                 source_val = int(current_source) if str(current_source).isdigit() else current_source
                 tracker = VisionTracker(source_val)
                 worker_state["last_command"] = f"System: Bound to Video Device {current_source}"
@@ -72,7 +66,7 @@ def vision_loop():
             dt = current_time - last_time
             last_time = current_time
 
-            success, frame, err_x, err_y = tracker.get_frame()
+            success, frame, err_x, err_y, track_status = tracker.get_frame()
             
             if success:
                 latest_frame = frame.copy()
@@ -80,44 +74,53 @@ def vision_loop():
                 worker_state["error_y"] = int(err_y)
                 
                 if worker_state["joystick_active"]:
-                    was_tracking = False
                     time.sleep(worker_state["loop_delay"] / 1000.0)
                     continue 
                     
                 if worker_state["tracking_active"]:
-                    was_tracking = True
-                    pan_pid.Kp_min = tilt_pid.Kp_min = worker_state["p"]
-                    pan_pid.Kp_max = tilt_pid.Kp_max = worker_state["p_max"]
-                    pan_pid.Ki = tilt_pid.Ki = worker_state["i"]
-                    pan_pid.Kd = tilt_pid.Kd = worker_state["d"]
-                    pan_pid.deadband = tilt_pid.deadband = worker_state["deadband"]
+                    if track_status == "LOCKED":
+                        pan_pid.Kp_min = tilt_pid.Kp_min = worker_state["p"]
+                        pan_pid.Kp_max = tilt_pid.Kp_max = worker_state["p_max"]
+                        pan_pid.Ki = tilt_pid.Ki = worker_state["i"]
+                        pan_pid.Kd = tilt_pid.Kd = worker_state["d"]
+                        pan_pid.deadband = tilt_pid.deadband = worker_state["deadband"]
 
-                    height, width, _ = frame.shape
-                    max_err_x = width // 2
-                    max_err_y = height // 2
+                        height, width, _ = frame.shape
+                        max_err_x = width // 2; max_err_y = height // 2
 
-                    pan_output = pan_pid.update(err_x, dt, max_err_x)
-                    tilt_output = tilt_pid.update(err_y, dt, max_err_y)
-                    
-                    dir_parts = []
-                    if tilt_output > 0: dir_parts.append("down")
-                    elif tilt_output < 0: dir_parts.append("up")
-                    if pan_output > 0: dir_parts.append("right")
-                    elif pan_output < 0: dir_parts.append("left")
-                    
-                    direction = "_".join(dir_parts) if dir_parts else "stop"
-                    p_speed = 0 if direction == "stop" else min(24, max(1, int(abs(pan_output))))
-                    t_speed = 0 if direction == "stop" else min(20, max(1, int(abs(tilt_output))))
-                    
-                    if cam: 
-                        cam.move(p_speed, t_speed, direction)
-                        if direction == "stop": worker_state["last_command"] = "Auto: Locked on target"
-                        else: worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
-                else:
-                    if was_tracking:
+                        pan_output = pan_pid.update(err_x, dt, max_err_x)
+                        tilt_output = tilt_pid.update(err_y, dt, max_err_y)
+                        
+                        dir_parts = []
+                        if tilt_output > 0: dir_parts.append("down")
+                        elif tilt_output < 0: dir_parts.append("up")
+                        if pan_output > 0: dir_parts.append("right")
+                        elif pan_output < 0: dir_parts.append("left")
+                        
+                        direction = "_".join(dir_parts) if dir_parts else "stop"
+                        p_speed = 0 if direction == "stop" else min(24, max(1, int(abs(pan_output))))
+                        t_speed = 0 if direction == "stop" else min(20, max(1, int(abs(tilt_output))))
+                        
+                        last_p_speed = p_speed
+                        last_t_speed = t_speed
+                        last_direction = direction
+                        
+                        if cam: cam.move(p_speed, t_speed, direction)
+                        worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
+                        
+                    elif track_status == "COASTING":
+                        if cam: cam.move(last_p_speed, last_t_speed, last_direction)
+                        worker_state["last_command"] = f"COASTING: {last_direction} (Searching...)"
+                        
+                    else: 
                         if cam: cam.move(0, 0, "stop")
-                        worker_state["last_command"] = "Auto: Standby"
-                        was_tracking = False
+                        pan_pid.integral = 0
+                        tilt_pid.integral = 0
+                        worker_state["last_command"] = "Auto: Standby (No Target)"
+                else:
+                    if track_status != "STANDBY":
+                        if cam: cam.move(0, 0, "stop")
+                        worker_state["last_command"] = "System: Tracking Disabled"
             else:
                 latest_frame = None
                 worker_state["last_command"] = "System: Video Stream Offline or Unreachable"
