@@ -13,7 +13,7 @@ worker_state = {
     "tracking_active": False,
     "joystick_active": False,
     "error_x": 0, "error_y": 0,
-    "p": 0.03, "i": 0.00, "d": 0.02, "deadband": 60, "loop_delay": 33,
+    "p": 0.005, "p_max": 0.030, "i": 0.00, "d": 0.01, "deadband": 60, "loop_delay": 33,
     "cam_ip": "192.168.1.100", "cam_port": 5678, "cam_source": "0", 
     "last_command": "Idle"
 }
@@ -23,17 +23,28 @@ cam = None
 tracker = None 
 
 class PIDController:
-    def __init__(self, p=0.03, i=0.0, d=0.01, deadband=60):
-        self.Kp = p; self.Ki = i; self.Kd = d; self.deadband = deadband
-        self.prev_error = 0; self.integral = 0
-    def update(self, error, dt):
+    def __init__(self, p_min=0.005, p_max=0.030, i=0.0, d=0.01, deadband=60):
+        self.Kp_min = p_min
+        self.Kp_max = p_max
+        self.Ki = i
+        self.Kd = d
+        self.deadband = deadband
+        self.prev_error = 0
+        self.integral = 0
+        
+    def update(self, error, dt, max_error):
         if abs(error) < self.deadband:
             self.integral = 0
             return 0
+            
+        # Non-Linear (Quadratic) Gain Scheduling
+        norm_e = min(1.0, abs(error) / max(1, max_error))
+        dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * (norm_e ** 2)
+        
         self.integral += error * dt
         derivative = (error - self.prev_error) / dt
         self.prev_error = error
-        return (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
+        return (dynamic_p * error) + (self.Ki * self.integral) + (self.Kd * derivative)
 
 def vision_loop():
     global latest_frame, cam, tracker
@@ -76,13 +87,18 @@ def vision_loop():
                     
                 if worker_state["tracking_active"]:
                     was_tracking = True
-                    pan_pid.Kp = tilt_pid.Kp = worker_state["p"]
+                    pan_pid.Kp_min = tilt_pid.Kp_min = worker_state["p"]
+                    pan_pid.Kp_max = tilt_pid.Kp_max = worker_state["p_max"]
                     pan_pid.Ki = tilt_pid.Ki = worker_state["i"]
                     pan_pid.Kd = tilt_pid.Kd = worker_state["d"]
                     pan_pid.deadband = tilt_pid.deadband = worker_state["deadband"]
 
-                    pan_output = pan_pid.update(err_x, dt)
-                    tilt_output = tilt_pid.update(err_y, dt)
+                    height, width, _ = frame.shape
+                    max_err_x = width // 2
+                    max_err_y = height // 2
+
+                    pan_output = pan_pid.update(err_x, dt, max_err_x)
+                    tilt_output = tilt_pid.update(err_y, dt, max_err_y)
                     
                     dir_parts = []
                     if tilt_output > 0: dir_parts.append("down")
@@ -155,9 +171,9 @@ async def update_config(request: Request):
         cam = PTZCamera(new_ip, port=new_port)
         worker_state["last_command"] = f"System: Reconnected to {new_ip}:{new_port}"
 
-    for key in ["p", "i", "d", "deadband", "loop_delay", "cam_source"]:
+    for key in ["p", "p_max", "i", "d", "deadband", "loop_delay", "cam_source"]:
         if key in data:
-            if key in ["p", "i", "d"]: worker_state[key] = float(data[key])
+            if key in ["p", "p_max", "i", "d"]: worker_state[key] = float(data[key])
             elif key in ["deadband", "loop_delay"]: worker_state[key] = int(data[key])
             else: worker_state[key] = str(data[key])
     return {"status": "success"}

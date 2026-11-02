@@ -15,10 +15,11 @@
         "action": "preset_7",
         "settle_time_sec": 4,
         "live_duration_sec": 15,
-        "is_moving_shot": false
+        "is_moving_shot": false,
+        "enabled": false
     },
     {
-        "enabled": true,
+        "enabled": false,
         "obs_scene": "New Scene",
         "camera_id": "cam_1",
         "action": "preset_1",
@@ -35,7 +36,7 @@
         "is_moving_shot": false
     },
     {
-        "enabled": true,
+        "enabled": false,
         "camera_id": "cam_1",
         "action": "preset_3",
         "settle_time_sec": 4,
@@ -43,7 +44,7 @@
         "is_moving_shot": false
     },
     {
-        "enabled": true,
+        "enabled": false,
         "camera_id": "cam_2",
         "action": "preset_1",
         "settle_time_sec": 4,
@@ -53,13 +54,13 @@
     {
         "enabled": true,
         "camera_id": "cam_1",
-        "action": "preset_7",
+        "action": "preset_9",
         "settle_time_sec": 4,
         "live_duration_sec": 15,
         "is_moving_shot": false
     },
     {
-        "enabled": true,
+        "enabled": false,
         "camera_id": "cam_2",
         "action": "preset_1",
         "settle_time_sec": 4,
@@ -67,7 +68,7 @@
         "is_moving_shot": false
     },
     {
-        "enabled": true,
+        "enabled": false,
         "camera_id": "cam_1",
         "action": "preset_5",
         "settle_time_sec": 4,

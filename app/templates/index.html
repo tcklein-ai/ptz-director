@@ -159,20 +159,20 @@
                 <div class="settings-group" style="border-left: 4px solid #5cb85c;">
                     <h3 style="margin-top:0;">Hardware IO Routing</h3>
                     <label>Video Source (USB Index or RTSP URL)</label>
-                    <input type="text" id="cam1-source" value="0" style="margin-bottom: 15px;" onchange="saveHubConfig()">
+                    <input type="text" id="cam1-source" style="margin-bottom: 15px;">
                     <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
                         <div style="flex: 2; min-width: 200px;">
                             <label>PTZ VISCA IP</label>
-                            <input type="text" id="cam1-ip" value="192.168.1.100" onchange="saveHubConfig()">
+                            <input type="text" id="cam1-ip">
                         </div>
                         <div style="flex: 1; min-width: 100px;">
                             <label>VISCA Port</label>
-                            <input type="number" id="cam1-port" value="5678" onchange="saveHubConfig()">
+                            <input type="number" id="cam1-port">
                         </div>
                     </div>
                     <label>Bound OBS Scene</label>
                     <div style="display: flex; gap: 10px;">
-                        <select id="cam1-obs-scene" class="obs-scene-select" style="flex: 1;" onchange="saveHubConfig()"></select>
+                        <select id="cam1-obs-scene" class="obs-scene-select" style="flex: 1;"></select>
                         <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh">🔄</button>
                     </div>
                 </div>
@@ -209,14 +209,16 @@
                     </div>
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
                         <h3 style="margin-top:0;">Motor Tuning (PID)</h3>
-                        <label>Proportional (P) <span id="val1-p">0.005</span></label>
-                        <input type="range" id="cam1-p" min="0" max="0.05" step="0.001" value="0.005" oninput="saveHubConfig()">
+                        <label>Base Proportional (P) <span id="val1-p">0.005</span></label>
+                        <input type="range" id="cam1-p" min="0" max="0.05" step="0.001" oninput="document.getElementById('val1-p').innerText = parseFloat(this.value).toFixed(3)">
+                        <label>Max Proportional (P Max) <span id="val1-p-max">0.030</span></label>
+                        <input type="range" id="cam1-p-max" min="0" max="0.1" step="0.001" oninput="document.getElementById('val1-p-max').innerText = parseFloat(this.value).toFixed(3)">
                         <label>Integral (I) <span id="val1-i">0.000</span></label>
-                        <input type="range" id="cam1-i" min="0" max="0.01" step="0.0001" value="0.000" oninput="saveHubConfig()">
+                        <input type="range" id="cam1-i" min="0" max="0.01" step="0.0001" oninput="document.getElementById('val1-i').innerText = parseFloat(this.value).toFixed(4)">
                         <label>Derivative (D) <span id="val1-d">0.010</span></label>
-                        <input type="range" id="cam1-d" min="0" max="0.05" step="0.001" value="0.010" oninput="saveHubConfig()">
+                        <input type="range" id="cam1-d" min="0" max="0.05" step="0.001" oninput="document.getElementById('val1-d').innerText = parseFloat(this.value).toFixed(3)">
                         <label>Deadband (px) <span id="val1-deadband">60</span></label>
-                        <input type="range" id="cam1-deadband" min="0" max="200" step="1" value="60" oninput="saveHubConfig()">
+                        <input type="range" id="cam1-deadband" min="0" max="200" step="1" oninput="document.getElementById('val1-deadband').innerText = this.value">
                     </div>
                 </div>
             </div>
@@ -226,20 +228,20 @@
                 <div class="settings-group" style="border-left: 4px solid #5bc0de;">
                     <h3 style="margin-top:0;">Hardware IO Routing</h3>
                     <label>Video Source (USB Index or RTSP URL)</label>
-                    <input type="text" id="cam2-source" value="1" style="margin-bottom: 15px;" onchange="saveHubConfig()">
+                    <input type="text" id="cam2-source" style="margin-bottom: 15px;">
                     <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
                         <div style="flex: 2; min-width: 200px;">
                             <label>PTZ VISCA IP</label>
-                            <input type="text" id="cam2-ip" value="192.168.1.101" onchange="saveHubConfig()">
+                            <input type="text" id="cam2-ip">
                         </div>
                         <div style="flex: 1; min-width: 100px;">
                             <label>VISCA Port</label>
-                            <input type="number" id="cam2-port" value="5678" onchange="saveHubConfig()">
+                            <input type="number" id="cam2-port">
                         </div>
                     </div>
                     <label>Bound OBS Scene</label>
                     <div style="display: flex; gap: 10px;">
-                        <select id="cam2-obs-scene" class="obs-scene-select" style="flex: 1;" onchange="saveHubConfig()"></select>
+                        <select id="cam2-obs-scene" class="obs-scene-select" style="flex: 1;"></select>
                         <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh">🔄</button>
                     </div>
                 </div>
@@ -276,14 +278,16 @@
                     </div>
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
                         <h3 style="margin-top:0;">Motor Tuning (PID)</h3>
-                        <label>Proportional (P) <span id="val2-p">0.005</span></label>
-                        <input type="range" id="cam2-p" min="0" max="0.05" step="0.001" value="0.005" oninput="saveHubConfig()">
+                        <label>Base Proportional (P) <span id="val2-p">0.005</span></label>
+                        <input type="range" id="cam2-p" min="0" max="0.05" step="0.001" oninput="document.getElementById('val2-p').innerText = parseFloat(this.value).toFixed(3)">
+                        <label>Max Proportional (P Max) <span id="val2-p-max">0.030</span></label>
+                        <input type="range" id="cam2-p-max" min="0" max="0.1" step="0.001" oninput="document.getElementById('val2-p-max').innerText = parseFloat(this.value).toFixed(3)">
                         <label>Integral (I) <span id="val2-i">0.000</span></label>
-                        <input type="range" id="cam2-i" min="0" max="0.01" step="0.0001" value="0.000" oninput="saveHubConfig()">
+                        <input type="range" id="cam2-i" min="0" max="0.01" step="0.0001" oninput="document.getElementById('val2-i').innerText = parseFloat(this.value).toFixed(4)">
                         <label>Derivative (D) <span id="val2-d">0.010</span></label>
-                        <input type="range" id="cam2-d" min="0" max="0.05" step="0.001" value="0.010" oninput="saveHubConfig()">
+                        <input type="range" id="cam2-d" min="0" max="0.05" step="0.001" oninput="document.getElementById('val2-d').innerText = parseFloat(this.value).toFixed(3)">
                         <label>Deadband (px) <span id="val2-deadband">60</span></label>
-                        <input type="range" id="cam2-deadband" min="0" max="200" step="1" value="60" oninput="saveHubConfig()">
+                        <input type="range" id="cam2-deadband" min="0" max="200" step="1" oninput="document.getElementById('val2-deadband').innerText = this.value">
                     </div>
                 </div>
             </div>
@@ -294,33 +298,47 @@
                     <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 200px;">
                             <label>OBS Host IP</label>
-                            <input type="text" id="obs-host" value="localhost" onchange="saveHubConfig()">
+                            <input type="text" id="obs-host">
                         </div>
                         <div style="flex: 1; min-width: 100px;">
                             <label>OBS Port</label>
-                            <input type="number" id="obs-port" value="4455" onchange="saveHubConfig()">
+                            <input type="number" id="obs-port">
                         </div>
                         <div style="flex: 1; min-width: 150px;">
                             <label>OBS Password</label>
-                            <input type="text" id="obs-pass" placeholder="(Blank if none)" onchange="saveHubConfig()">
+                            <input type="text" id="obs-pass" placeholder="(Blank if none)">
                         </div>
                     </div>
                     <button class="btn-blue" style="margin-top:15px;" onclick="connectOBS()">Force Reconnect OBS</button>
                     <p style="text-align: left; margin-top: 15px; font-size:16px;">Connection Status: <span id="obs-conn-status" class="text-danger">Disconnected</span></p>
                 </div>
             </div>
+            
+            <div style="display: flex; justify-content: flex-end; padding-top: 20px; border-top: 1px solid #333; margin-top: 20px;">
+                <button class="btn-on" style="width: 250px; font-size: 18px; padding: 15px;" onclick="saveConfigBtn()">💾 Save All Settings</button>
+            </div>
 
         </div>
     </div>
 
     <script>
-        window.cam1_presets = {"1": "Preset 1", "2": "Preset 2"};
-        window.cam2_presets = {"1": "Preset 1", "2": "Preset 2"};
+        window.cam1_presets = {};
+        window.cam2_presets = {};
 
         const modal = document.getElementById("settingsModal");
-        function openModal() { modal.style.display = "block"; loadOBSScenes(); updatePresetDropdowns(); }
+        
+        function openModal() { 
+            modal.style.display = "block"; 
+            fetch('/api/state').then(r => r.json()).then(data => {
+                populateConfigUI(data);
+                loadOBSScenes(); 
+                updatePresetDropdowns(); 
+            });
+        }
+        
         function closeModal() { modal.style.display = "none"; }
         window.onclick = function(event) { if (event.target == modal) modal.style.display = "none"; }
+        
         function openTab(evt, tabName) {
             let i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tabcontent");
@@ -331,6 +349,47 @@
             evt.currentTarget.className += " active";
         }
         document.getElementById("defaultOpen").click();
+
+        function populateConfigUI(data) {
+            document.getElementById('cam1-source').value = data.cam1_source || "0";
+            document.getElementById('cam1-ip').value = data.cam1_ip || "192.168.1.100";
+            document.getElementById('cam1-port').value = data.cam1_port || 5678;
+            document.getElementById('cam1-obs-scene').setAttribute('data-loaded-val', data.cam1_obs_scene || "Unknown");
+            document.getElementById('cam1-p').value = data.cam1_p || 0.005;
+            document.getElementById('cam1-p-max').value = data.cam1_p_max || 0.030;
+            document.getElementById('cam1-i').value = data.cam1_i || 0.000;
+            document.getElementById('cam1-d').value = data.cam1_d || 0.010;
+            document.getElementById('cam1-deadband').value = data.cam1_deadband || 60;
+            
+            document.getElementById('val1-p').innerText = parseFloat(data.cam1_p || 0.005).toFixed(3);
+            document.getElementById('val1-p-max').innerText = parseFloat(data.cam1_p_max || 0.030).toFixed(3);
+            document.getElementById('val1-i').innerText = parseFloat(data.cam1_i || 0.000).toFixed(4);
+            document.getElementById('val1-d').innerText = parseFloat(data.cam1_d || 0.010).toFixed(3);
+            document.getElementById('val1-deadband').innerText = data.cam1_deadband || 60;
+
+            document.getElementById('cam2-source').value = data.cam2_source || "1";
+            document.getElementById('cam2-ip').value = data.cam2_ip || "192.168.1.101";
+            document.getElementById('cam2-port').value = data.cam2_port || 5678;
+            document.getElementById('cam2-obs-scene').setAttribute('data-loaded-val', data.cam2_obs_scene || "Unknown");
+            document.getElementById('cam2-p').value = data.cam2_p || 0.005;
+            document.getElementById('cam2-p-max').value = data.cam2_p_max || 0.030;
+            document.getElementById('cam2-i').value = data.cam2_i || 0.000;
+            document.getElementById('cam2-d').value = data.cam2_d || 0.010;
+            document.getElementById('cam2-deadband').value = data.cam2_deadband || 60;
+            
+            document.getElementById('val2-p').innerText = parseFloat(data.cam2_p || 0.005).toFixed(3);
+            document.getElementById('val2-p-max').innerText = parseFloat(data.cam2_p_max || 0.030).toFixed(3);
+            document.getElementById('val2-i').innerText = parseFloat(data.cam2_i || 0.000).toFixed(4);
+            document.getElementById('val2-d').innerText = parseFloat(data.cam2_d || 0.010).toFixed(3);
+            document.getElementById('val2-deadband').innerText = data.cam2_deadband || 60;
+            
+            document.getElementById('obs-host').value = data.obs_host || "localhost";
+            document.getElementById('obs-port').value = data.obs_port || 4455;
+            document.getElementById('obs-pass').value = data.obs_password || ""; 
+            
+            if (data.cam1_presets) window.cam1_presets = data.cam1_presets;
+            if (data.cam2_presets) window.cam2_presets = data.cam2_presets;
+        }
 
         function getActiveCam() { return document.getElementById('active-manual-cam').value; }
         
@@ -381,13 +440,16 @@
         }
         function clearTarget() { fetch('/api/target/clear', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam()}) }); }
 
-        function connectOBS() { fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value}) }).then(() => setTimeout(loadOBSScenes, 1000)); }
+        function connectOBS() { 
+            saveHubConfig();
+            setTimeout(loadOBSScenes, 1000); 
+        }
 
         function loadOBSScenes() {
             fetch('/api/obs/scenes').then(r => r.json()).then(data => {
                 if (data.scenes && data.scenes.length > 0) {
                     document.querySelectorAll('.obs-scene-select').forEach(select => {
-                        const currentVal = select.value || select.getAttribute('data-loaded-val');
+                        const currentVal = select.value || select.getAttribute('data-loaded-val') || "Unknown";
                         select.innerHTML = '';
                         let found = false;
                         data.scenes.forEach(scene => {
@@ -396,7 +458,7 @@
                             if (scene === currentVal) { opt.selected = true; found = true; }
                             select.appendChild(opt);
                         });
-                        if (!found && currentVal) {
+                        if (!found && currentVal && currentVal !== "Unknown") {
                             const opt = document.createElement('option');
                             opt.value = currentVal; opt.innerText = currentVal + " (Offline)"; opt.selected = true;
                             select.appendChild(opt);
@@ -406,27 +468,46 @@
             });
         }
 
+        function saveConfigBtn() {
+            saveHubConfig();
+            alert("Settings Saved Successfully.");
+            closeModal();
+        }
+
         function saveHubConfig() {
+            let c1_scene = document.getElementById('cam1-obs-scene').value;
+            if (!c1_scene) c1_scene = document.getElementById('cam1-obs-scene').getAttribute('data-loaded-val') || "Unknown";
+            
+            let c2_scene = document.getElementById('cam2-obs-scene').value;
+            if (!c2_scene) c2_scene = document.getElementById('cam2-obs-scene').getAttribute('data-loaded-val') || "Unknown";
+
             const payload = {
-                obs_host: document.getElementById('obs-host').value, obs_port: document.getElementById('obs-port').value, obs_password: document.getElementById('obs-pass').value,
+                obs_host: document.getElementById('obs-host').value, 
+                obs_port: document.getElementById('obs-port').value, 
+                obs_password: document.getElementById('obs-pass').value,
                 
-                // FIX: Send cam1_obs_scene to match backend
-                cam1_source: document.getElementById('cam1-source').value, cam1_ip: document.getElementById('cam1-ip').value, cam1_port: document.getElementById('cam1-port').value, cam1_obs_scene: document.getElementById('cam1-obs-scene').value,
-                cam1_p: document.getElementById('cam1-p').value, cam1_i: document.getElementById('cam1-i').value, cam1_d: document.getElementById('cam1-d').value, cam1_deadband: document.getElementById('cam1-deadband').value,
+                cam1_source: document.getElementById('cam1-source').value, 
+                cam1_ip: document.getElementById('cam1-ip').value, 
+                cam1_port: document.getElementById('cam1-port').value, 
+                cam1_obs_scene: c1_scene,
+                cam1_p: document.getElementById('cam1-p').value, 
+                cam1_p_max: document.getElementById('cam1-p-max').value, 
+                cam1_i: document.getElementById('cam1-i').value, 
+                cam1_d: document.getElementById('cam1-d').value, 
+                cam1_deadband: document.getElementById('cam1-deadband').value,
                 cam1_presets: window.cam1_presets,
                 
-                // FIX: Send cam2_obs_scene to match backend
-                cam2_source: document.getElementById('cam2-source').value, cam2_ip: document.getElementById('cam2-ip').value, cam2_port: document.getElementById('cam2-port').value, cam2_obs_scene: document.getElementById('cam2-obs-scene').value,
-                cam2_p: document.getElementById('cam2-p').value, cam2_i: document.getElementById('cam2-i').value, cam2_d: document.getElementById('cam2-d').value, cam2_deadband: document.getElementById('cam2-deadband').value,
+                cam2_source: document.getElementById('cam2-source').value, 
+                cam2_ip: document.getElementById('cam2-ip').value, 
+                cam2_port: document.getElementById('cam2-port').value, 
+                cam2_obs_scene: c2_scene,
+                cam2_p: document.getElementById('cam2-p').value, 
+                cam2_p_max: document.getElementById('cam2-p-max').value, 
+                cam2_i: document.getElementById('cam2-i').value, 
+                cam2_d: document.getElementById('cam2-d').value, 
+                cam2_deadband: document.getElementById('cam2-deadband').value,
                 cam2_presets: window.cam2_presets
             };
-            
-            document.getElementById('val1-p').innerText = parseFloat(payload.cam1_p).toFixed(3); document.getElementById('val1-i').innerText = parseFloat(payload.cam1_i).toFixed(4);
-            document.getElementById('val1-d').innerText = parseFloat(payload.cam1_d).toFixed(3); document.getElementById('val1-deadband').innerText = payload.cam1_deadband;
-            
-            document.getElementById('val2-p').innerText = parseFloat(payload.cam2_p).toFixed(3); document.getElementById('val2-i').innerText = parseFloat(payload.cam2_i).toFixed(4);
-            document.getElementById('val2-d').innerText = parseFloat(payload.cam2_d).toFixed(3); document.getElementById('val2-deadband').innerText = payload.cam2_deadband;
-
             fetch('/api/hub_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         }
 
@@ -503,6 +584,12 @@
             ctx.fillStyle = '#5bc0de'; ctx.beginPath(); ctx.arc(bx, by, 5, 0, 2 * Math.PI); ctx.fill();
         }
 
+        fetch('/api/state').then(r => r.json()).then(data => {
+            if (data.cam1_presets) window.cam1_presets = data.cam1_presets;
+            if (data.cam2_presets) window.cam2_presets = data.cam2_presets;
+            renderSequenceTable();
+        });
+
         setInterval(() => {
             fetch('/api/state').then(r => r.json()).then(data => {
                 
@@ -553,33 +640,6 @@
                     tourBtn.className = "btn-blue"; tourBtn.innerText = "▶ Start Auto-Tour"; 
                     document.getElementById('tour-progress').style.width = "0%";
                     document.getElementById('tour-timer-text').innerText = "0.0";
-                }
-
-                if(!window.loadedInitialData) {
-                    document.getElementById('cam1-source').value = data.cam1_source || "0";
-                    document.getElementById('cam1-ip').value = data.cam1_ip || "192.168.1.100";
-                    document.getElementById('cam1-port').value = data.cam1_port || 5678;
-                    document.getElementById('cam1-obs-scene').setAttribute('data-loaded-val', data.cam1_obs_scene || "Cam 1 Wide");
-                    document.getElementById('cam1-p').value = data.cam1_p;
-                    document.getElementById('cam1-i').value = data.cam1_i;
-                    document.getElementById('cam1-d').value = data.cam1_d;
-                    document.getElementById('cam1-deadband').value = data.cam1_deadband;
-
-                    document.getElementById('cam2-source').value = data.cam2_source || "1";
-                    document.getElementById('cam2-ip').value = data.cam2_ip || "192.168.1.101";
-                    document.getElementById('cam2-port').value = data.cam2_port || 5678;
-                    document.getElementById('cam2-obs-scene').setAttribute('data-loaded-val', data.cam2_obs_scene || "Cam 2 Wide");
-                    document.getElementById('cam2-p').value = data.cam2_p;
-                    document.getElementById('cam2-i').value = data.cam2_i;
-                    document.getElementById('cam2-d').value = data.cam2_d;
-                    document.getElementById('cam2-deadband').value = data.cam2_deadband;
-                    
-                    document.getElementById('obs-host').value = data.obs_host || "localhost";
-                    document.getElementById('obs-port').value = data.obs_port || 4455;
-                    document.getElementById('obs-pass').value = data.obs_password || ""; 
-                    
-                    saveHubConfig(); 
-                    window.loadedInitialData = true;
                 }
             });
         }, 300);
