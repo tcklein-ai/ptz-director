@@ -43,9 +43,12 @@ def load_config():
             with open(CONFIG_FILE, "r") as f:
                 saved = json.load(f)
                 for k in saved:
-                    if k == "cam_1_obs_scene": global_state["cam1_obs_scene"] = saved[k]
-                    elif k == "cam_2_obs_scene": global_state["cam2_obs_scene"] = saved[k]
-                    elif k in global_state: global_state[k] = saved[k]
+                    if k == "cam_1_obs_scene":
+                        global_state["cam1_obs_scene"] = saved[k]
+                    elif k == "cam_2_obs_scene":
+                        global_state["cam2_obs_scene"] = saved[k]
+                    elif k in global_state: 
+                        global_state[k] = saved[k]
         except Exception: pass
 
 def save_config():
@@ -266,4 +269,4 @@ def video_feed(cam_id: str):
     return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, log_level="warning")

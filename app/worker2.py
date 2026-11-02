@@ -26,12 +26,13 @@ class PIDController:
     def __init__(self, p_min=0.005, p_max=0.030, i=0.0, d=0.01, deadband=60):
         self.Kp_min = p_min; self.Kp_max = p_max; self.Ki = i; self.Kd = d; self.deadband = deadband
         self.prev_error = 0; self.integral = 0
+        
     def update(self, error, dt, max_error):
         if abs(error) < self.deadband:
             self.integral = 0
             return 0
         norm_e = min(1.0, abs(error) / max(1, max_error))
-        dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * (norm_e ** 2)
+        dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * norm_e
         self.integral += error * dt
         derivative = (error - self.prev_error) / dt
         self.prev_error = error
@@ -273,4 +274,4 @@ async def execute_director_action(request: Request):
     return {"status": "success"}
 
 if __name__ == "__main__":
-    uvicorn.run("app.worker2:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("app.worker2:app", host="0.0.0.0", port=8002, log_level="warning")

@@ -26,12 +26,16 @@ class PIDController:
     def __init__(self, p_min=0.005, p_max=0.030, i=0.0, d=0.01, deadband=60):
         self.Kp_min = p_min; self.Kp_max = p_max; self.Ki = i; self.Kd = d; self.deadband = deadband
         self.prev_error = 0; self.integral = 0
+        
     def update(self, error, dt, max_error):
         if abs(error) < self.deadband:
             self.integral = 0
             return 0
+            
+        # Linear Gain Scaling (mx + b): Scales straight up immediately past deadband
         norm_e = min(1.0, abs(error) / max(1, max_error))
-        dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * (norm_e ** 2)
+        dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * norm_e
+        
         self.integral += error * dt
         derivative = (error - self.prev_error) / dt
         self.prev_error = error
@@ -48,7 +52,6 @@ def vision_loop():
     tilt_pid = PIDController()
     last_time = time.time()
     
-    # NEW: Memory for Coasting
     last_p_speed = 0
     last_t_speed = 0
     last_direction = "stop"
@@ -67,7 +70,6 @@ def vision_loop():
             dt = current_time - last_time
             last_time = current_time
 
-            # Retrieve 5 variables (including status string)
             success, frame, err_x, err_y, track_status = tracker.get_frame()
             
             if success:
@@ -103,7 +105,6 @@ def vision_loop():
                         p_speed = 0 if direction == "stop" else min(24, max(1, int(abs(pan_output))))
                         t_speed = 0 if direction == "stop" else min(20, max(1, int(abs(tilt_output))))
                         
-                        # Save state just in case we lose the target next frame
                         last_p_speed = p_speed
                         last_t_speed = t_speed
                         last_direction = direction
@@ -112,11 +113,10 @@ def vision_loop():
                         worker_state["last_command"] = f"Auto: {direction} (Pan: {p_speed}, Tilt: {t_speed})"
                         
                     elif track_status == "COASTING":
-                        # Bypass PID completely and freeze motors at last known speeds
                         if cam: cam.move(last_p_speed, last_t_speed, last_direction)
                         worker_state["last_command"] = f"COASTING: {last_direction} (Searching...)"
                         
-                    else: # STANDBY
+                    else: 
                         if cam: cam.move(0, 0, "stop")
                         pan_pid.integral = 0
                         tilt_pid.integral = 0
@@ -277,4 +277,4 @@ async def execute_director_action(request: Request):
     return {"status": "success"}
 
 if __name__ == "__main__":
-    uvicorn.run("app.worker:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("app.worker:app", host="0.0.0.0", port=8001, log_level="warning")
