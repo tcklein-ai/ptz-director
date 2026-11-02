@@ -18,6 +18,16 @@ class OBSManager:
             self.event_client.callback.register(self.on_event)
             self.connected = True
             print(f"Successfully connected to OBS WebSocket at {self.host}:{self.port}")
+            
+            # FIX: Fetch current scene immediately so the UI doesn't get stuck on "Unknown"
+            try:
+                resp = self.client.get_current_program_scene()
+                scene_name = getattr(resp, 'current_program_scene_name', getattr(resp, 'scene_name', getattr(resp, 'sceneName', 'Unknown')))
+                if self.on_scene_change and scene_name != 'Unknown':
+                    self.on_scene_change(scene_name)
+            except Exception as e:
+                print(f"Initial scene fetch failed: {e}")
+                
         except Exception as e:
             self.connected = False
             print(f"Failed to connect to OBS: {e}")
@@ -39,18 +49,20 @@ class OBSManager:
     def on_event(self, data):
         if data.name == "CurrentProgramSceneChanged":
             if self.on_scene_change:
-                scene_name = getattr(data, 'scene_name', 'Unknown')
+                scene_name = getattr(data, 'scene_name', getattr(data, 'sceneName', 'Unknown'))
                 self.on_scene_change(scene_name)
 
     def set_scene(self, scene_name):
         if self.connected and self.client:
             try:
                 self.client.set_current_program_scene(scene_name)
+                # FIX: Force the local state to update instantly so the Director verification loop doesn't time out
+                if self.on_scene_change:
+                    self.on_scene_change(scene_name)
             except Exception as e:
                 print(f"Error setting OBS scene: {e}")
 
     def get_scenes(self):
-        """NEW: Fetches the list of all available scenes from OBS."""
         if self.connected and self.client:
             try:
                 resp = self.client.get_scene_list()
