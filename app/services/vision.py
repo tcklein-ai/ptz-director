@@ -17,7 +17,7 @@ class VisionTracker:
             
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
-        # Load Face Cascade for multi-target detection
+        # Load Face Cascade for multi-target detection (throttled)
         cascade_name = 'haarcascade_frontalface_default.xml'
         local_path = os.path.join(os.getcwd(), cascade_name)
         default_path = os.path.join(cv2.data.haarcascades, cascade_name)
@@ -32,8 +32,9 @@ class VisionTracker:
         
         self.obj_tracker = None
         self.tracking_locked = False
-        self.detected_candidates = [] # Stores current green boxes
+        self.detected_candidates = []
         self.lost_frames = 0
+        self.frame_counter = 0 # Used to throttle heavy cascade checks
         
         self.pending_target = None
         self.pending_clear = False
@@ -50,7 +51,9 @@ class VisionTracker:
         while self.running:
             if self.cap.isOpened():
                 self.ret, frame = self.cap.read()
-                if self.ret: self.latest_frame = frame
+                if self.ret:
+                    # OPT optimization: Downscale internal tracking frame to 640x360 to save CPU
+                    self.latest_frame = cv2.resize(frame, (640, 360))
                 else: time.sleep(0.033)
             else:
                 time.sleep(0.033)
@@ -89,11 +92,13 @@ class VisionTracker:
             self.lost_frames = 0
             self.pending_clear = False
             
-        # 1. Continuously detect all available faces for green overlays
+        self.frame_counter += 1
+        
+        # 1. Throttled Face Detection (Runs only every 15 frames when searching to spare CPU)
         self.detected_candidates = []
-        if not self.face_cascade.empty():
+        if not self.tracking_locked and not self.face_cascade.empty() and (self.frame_counter % 15 == 0):
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
+            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=4, minSize=(30, 30))
             for (x, y, w, h) in faces:
                 expand = int(w * 0.3)
                 nx = max(0, x - expand)
@@ -102,7 +107,7 @@ class VisionTracker:
                 nh = min(height - ny, h + (expand * 2))
                 self.detected_candidates.append((nx, ny, nw, nh))
 
-        # 2. Handle Mouse Click Selection (Check if click collides with a green box)
+        # 2. Handle Mouse Click Selection
         if self.pending_target is not None:
             px_pct, py_pct = self.pending_target
             self.pending_target = None 
@@ -110,15 +115,13 @@ class VisionTracker:
             click_y = int(py_pct * height)
             
             selected_box = None
-            # Check collision with detected green candidates first
             for (nx, ny, nw, nh) in self.detected_candidates:
                 if nx <= click_x <= nx + nw and ny <= click_y <= ny + nh:
                     selected_box = (nx, ny, nw, nh)
                     break
             
-            # If click didn't land on a detected face, drop a default box around the click
             if selected_box is None:
-                bw, bh = 150, 200
+                bw, bh = 100, 140
                 nx = max(0, click_x - (bw // 2))
                 ny = max(0, click_y - (bh // 2))
                 selected_box = (nx, ny, bw, bh)
@@ -128,13 +131,12 @@ class VisionTracker:
             self.tracking_locked = True
             self.lost_frames = 0
 
-        # 3. Draw Green Boxes for all available choices
+        # 3. Draw Green Candidate Boxes
         if not self.tracking_locked:
             for (nx, ny, nw, nh) in self.detected_candidates:
-                cv2.rectangle(frame, (nx, ny), (nx+nw, ny+nh), (0, 255, 0), 2)
-                cv2.putText(frame, "TARGET", (nx, ny-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                cv2.rectangle(frame, (nx, ny), (nx+nw, ny+nh), (0, 255, 0), 1)
 
-        # 4. Active Yellow Lock Tracking (CSRT)
+        # 4. Active Yellow Lock Tracking (CSRT is lightweight once initialized)
         if self.tracking_locked and self.obj_tracker is not None:
             try:
                 success, bbox = self.obj_tracker.update(frame)
@@ -143,9 +145,8 @@ class VisionTracker:
                     err_x = (x + (w // 2)) - center_x
                     err_y = (y + (h // 2)) - center_y
                     
-                    # Active target rendered in Yellow
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 255), 2)
-                    cv2.putText(frame, "LOCKED (SELECTED)", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+                    cv2.putText(frame, "LOCKED", (x, max(15, y-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
                     status = "LOCKED"
                     self.lost_frames = 0
                 else:
@@ -157,26 +158,16 @@ class VisionTracker:
                 self.obj_tracker = None
                 self.lost_frames = 1
                 
-        # 5. Coasting & Search fallback if active lock is lost
-        if not self.tracking_locked and 0 < self.lost_frames < 45:
+        # 5. Coasting
+        if not self.tracking_locked and 0 < self.lost_frames < 30:
             status = "COASTING"
-            if len(self.detected_candidates) > 0:
-                # Re-acquire nearest candidate automatically
-                nx, ny, nw, nh = self.detected_candidates[0]
-                self.obj_tracker = self._create_tracker()
-                self.obj_tracker.init(frame, (nx, ny, nw, nh))
-                self.tracking_locked = True
-                self.lost_frames = 0
-                status = "LOCKED"
-            else:
-                self.lost_frames += 1
-                cv2.putText(frame, "SEARCHING...", (width//2 - 60, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-        elif self.lost_frames >= 45:
+            self.lost_frames += 1
+        elif self.lost_frames >= 30:
             self.lost_frames = 0
             status = "STANDBY"
 
         cv2.line(frame, (center_x, 0), (center_x, height), (255, 0, 0), 1)
         cv2.line(frame, (0, center_y), (width, center_y), (255, 0, 0), 1)
-        cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
+        cv2.circle(frame, (center_x, center_y), 4, (0, 0, 255), -1)
 
         return True, frame, err_x, err_y, status
