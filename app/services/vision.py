@@ -2,7 +2,6 @@ import cv2
 import os
 import threading
 import time
-import urllib.request
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp|fflags;nobuffer|flags;low_delay"
 
@@ -17,24 +16,10 @@ class VisionTracker:
             
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
-        # Load Face Cascade for multi-target detection (throttled)
-        cascade_name = 'haarcascade_frontalface_default.xml'
-        local_path = os.path.join(os.getcwd(), cascade_name)
-        default_path = os.path.join(cv2.data.haarcascades, cascade_name)
-        
-        if os.path.exists(local_path): self.face_cascade = cv2.CascadeClassifier(local_path)
-        elif os.path.exists(default_path): self.face_cascade = cv2.CascadeClassifier(default_path)
-        else:
-            try:
-                urllib.request.urlretrieve(f"https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{cascade_name}", local_path)
-                self.face_cascade = cv2.CascadeClassifier(local_path)
-            except Exception: self.face_cascade = cv2.CascadeClassifier()
-        
         self.obj_tracker = None
         self.tracking_locked = False
-        self.detected_candidates = []
+        self.target_hist = None # Stores color histogram for recovery
         self.lost_frames = 0
-        self.frame_counter = 0 # Used to throttle heavy cascade checks
         
         self.pending_target = None
         self.pending_clear = False
@@ -52,7 +37,7 @@ class VisionTracker:
             if self.cap.isOpened():
                 self.ret, frame = self.cap.read()
                 if self.ret:
-                    # OPT optimization: Downscale internal tracking frame to 640x360 to save CPU
+                    # Keep processing frame lightweight at 640x360 to protect CPU
                     self.latest_frame = cv2.resize(frame, (640, 360))
                 else: time.sleep(0.033)
             else:
@@ -75,6 +60,21 @@ class VisionTracker:
     def clear_target(self):
         self.pending_clear = True
 
+    def _get_color_histogram(self, frame, bbox):
+        x, y, w, h = [int(v) for v in bbox]
+        # Crop target safely within frame boundaries
+        h_f, w_f, _ = frame.shape
+        x = max(0, x); y = max(0, y)
+        w = min(w, w_f - x); h = min(h, h_f - y)
+        if w <= 0 or h <= 0: return None
+        
+        roi = frame[y:y+h, x:x+w]
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        # Calculate histogram of Hue and Saturation channels
+        hist = cv2.calcHist([hsv], [0, 1], None, [30, 32], [0, 180, 0, 256])
+        cv2.normalize(hist, hist, 0, 1, cv2.NORM_MINMAX)
+        return hist
+
     def get_frame(self):
         if not self.ret or self.latest_frame is None:
             return False, None, 0, 0, "STANDBY"
@@ -89,54 +89,29 @@ class VisionTracker:
         if self.pending_clear:
             self.tracking_locked = False
             self.obj_tracker = None
+            self.target_hist = None
             self.lost_frames = 0
             self.pending_clear = False
             
-        self.frame_counter += 1
-        
-        # 1. Throttled Face Detection (Runs only every 15 frames when searching to spare CPU)
-        self.detected_candidates = []
-        if not self.tracking_locked and not self.face_cascade.empty() and (self.frame_counter % 15 == 0):
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=4, minSize=(30, 30))
-            for (x, y, w, h) in faces:
-                expand = int(w * 0.3)
-                nx = max(0, x - expand)
-                ny = max(0, y - expand)
-                nw = min(width - nx, w + (expand * 2))
-                nh = min(height - ny, h + (expand * 2))
-                self.detected_candidates.append((nx, ny, nw, nh))
-
-        # 2. Handle Mouse Click Selection
+        # Handle Manual Click Selection
         if self.pending_target is not None:
             px_pct, py_pct = self.pending_target
             self.pending_target = None 
             click_x = int(px_pct * width)
             click_y = int(py_pct * height)
             
-            selected_box = None
-            for (nx, ny, nw, nh) in self.detected_candidates:
-                if nx <= click_x <= nx + nw and ny <= click_y <= ny + nh:
-                    selected_box = (nx, ny, nw, nh)
-                    break
-            
-            if selected_box is None:
-                bw, bh = 100, 140
-                nx = max(0, click_x - (bw // 2))
-                ny = max(0, click_y - (bh // 2))
-                selected_box = (nx, ny, bw, bh)
+            bw, bh = 100, 140
+            nx = max(0, click_x - (bw // 2))
+            ny = max(0, click_y - (bh // 2))
+            initial_bbox = (nx, ny, bw, bh)
                 
             self.obj_tracker = self._create_tracker()
-            self.obj_tracker.init(frame, selected_box)
+            self.obj_tracker.init(frame, initial_bbox)
+            self.target_hist = self._get_color_histogram(frame, initial_bbox)
             self.tracking_locked = True
             self.lost_frames = 0
 
-        # 3. Draw Green Candidate Boxes
-        if not self.tracking_locked:
-            for (nx, ny, nw, nh) in self.detected_candidates:
-                cv2.rectangle(frame, (nx, ny), (nx+nw, ny+nh), (0, 255, 0), 1)
-
-        # 4. Active Yellow Lock Tracking (CSRT is lightweight once initialized)
+        # Active Tracking Loop
         if self.tracking_locked and self.obj_tracker is not None:
             try:
                 success, bbox = self.obj_tracker.update(frame)
@@ -145,11 +120,17 @@ class VisionTracker:
                     err_x = (x + (w // 2)) - center_x
                     err_y = (y + (h // 2)) - center_y
                     
+                    # Periodically update color profile to adapt to lighting changes
+                    if self.lost_frames % 10 == 0:
+                        new_hist = self._get_color_histogram(frame, bbox)
+                        if new_hist is not None: self.target_hist = new_hist
+
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 255), 2)
                     cv2.putText(frame, "LOCKED", (x, max(15, y-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
                     status = "LOCKED"
                     self.lost_frames = 0
                 else:
+                    # Target lost from CSRT, switch to Coasting/Color Search mode
                     self.tracking_locked = False
                     self.obj_tracker = None
                     self.lost_frames = 1
@@ -158,12 +139,41 @@ class VisionTracker:
                 self.obj_tracker = None
                 self.lost_frames = 1
                 
-        # 5. Coasting
+        # Color-Based Re-Acquisition during Coasting (Active for ~1 second / 30 frames)
         if not self.tracking_locked and 0 < self.lost_frames < 30:
             status = "COASTING"
             self.lost_frames += 1
+            
+            if self.target_hist is not None:
+                # Scan sliding windows across the frame looking for a matching color histogram
+                best_match = 0
+                best_box = None
+                step = 40
+                bw, bh = 100, 140
+                
+                for sy in range(0, height - bh, step):
+                    for sx in range(0, width - bw, step):
+                        cand_box = (sx, sy, bw, bh)
+                        cand_hist = self._get_color_histogram(frame, cand_box)
+                        if cand_hist is not None:
+                            # Compare color similarity
+                            score = cv2.compareHist(self.target_hist, cand_hist, cv2.HISTCMP_CORREL)
+                            if score > best_match:
+                                best_match = score
+                                best_box = cand_box
+                
+                # If a strong color match is found (similarity > 65%), re-initialize the tracker
+                if best_match > 0.65 and best_box is not None:
+                    self.obj_tracker = self._create_tracker()
+                    self.obj_tracker.init(frame, best_box)
+                    self.tracking_locked = True
+                    self.lost_frames = 0
+                    status = "LOCKED"
+                    cv2.putText(frame, "RE-ACQUIRED (COLOR)", (best_box[0], best_box[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                    
         elif self.lost_frames >= 30:
             self.lost_frames = 0
+            self.target_hist = None
             status = "STANDBY"
 
         cv2.line(frame, (center_x, 0), (center_x, height), (255, 0, 0), 1)
