@@ -67,7 +67,7 @@ def vision_loop():
             dt = current_time - last_time
             last_time = current_time
 
-            success, frame, err_x, err_y, track_status = tracker.get_frame()
+            success, frame, err_x, err_y, track_status = tracker.get_frame(worker_state["deadband"])
             
             if success:
                 latest_frame = frame.copy()

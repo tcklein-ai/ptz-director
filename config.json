@@ -27,7 +27,7 @@
     "cam2_port": 5678,
     "cam2_obs_scene": "Camera 2",
     "cam2_p": 0.005,
-    "cam2_p_max": 0.025,
+    "cam2_p_max": 0.03,
     "cam2_i": 0.0004,
     "cam2_d": 0.002,
     "cam2_deadband": 43,

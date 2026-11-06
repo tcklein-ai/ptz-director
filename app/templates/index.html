@@ -4,121 +4,198 @@
     <title>PTZ Director</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;}
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1400px; margin: auto; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; display: flex; flex-direction: column; justify-content: space-between;}
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px; max-width: 1450px; margin-left: auto; margin-right: auto; }
+        
+        /* Asymmetric 2-Column Broadcast Layout */
+        .broadcast-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; max-width: 1450px; margin: auto; align-items: stretch; }
+        @media (max-width: 1050px) { .broadcast-grid { grid-template-columns: 1fr; } }
+        
+        .card { background: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; flex-direction: column; justify-content: space-between; }
         h1, h2, h3, h4 { margin-top: 0; color: #fff; }
-        .text-success { color: #5cb85c; } .text-danger { color: #d9534f; } .text-warning { color: #f0ad4e; }
+        .text-success { color: #5cb85c; } .text-danger { color: #d9534f; } .text-warning { color: #f0ad4e; } .text-muted { color: #9e8f80; }
         
-        button { padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; font-weight: bold; width: 100%; transition: 0.2s; }
+        button { padding: 10px 16px; font-size: 14px; cursor: pointer; border-radius: 6px; border: none; font-weight: bold; transition: 0.15s; color: white; }
         button:active { transform: scale(0.98); }
-        .btn-off { background-color: #d9534f; color: white; }
-        .btn-on { background-color: #5cb85c; color: white; }
-        .btn-settings { background-color: #444; color: white; width: auto; font-size: 16px; padding: 10px 20px; }
-        .btn-settings:hover { background-color: #555; }
-        .btn-blue { background-color: #0275d8; color: white; }
-        .btn-small { padding: 5px 10px; width: auto; font-size: 14px; margin: 2px;}
-
-        #radar { background-color: #000; border: 2px solid #333; border-radius: 50%; margin: 20px auto; display: block; max-width: 100%;}
         
+        /* Updated State Colors: Red = Active, Brownish-Grey/Orangish-Tan = Inactive */
+        .btn-active-red { background-color: #d9534f; color: white; border: 1px solid #ff6b66; box-shadow: 0 0 8px rgba(217, 83, 79, 0.4); }
+        .btn-inactive-tan { background-color: #6b5b4d; color: #e6ddd5; border: 1px solid #857262; }
+        .btn-inactive-tan:hover { background-color: #7d6b5b; }
+        
+        .btn-settings { background-color: #3a3633; color: #ddd; width: auto; border: 1px solid #554f4a; }
+        .btn-settings:hover { background-color: #4d4743; color: white; }
+        .btn-blue { background-color: #0275d8; color: white; }
+        .btn-small { padding: 5px 10px; width: auto; font-size: 13px; margin: 2px; }
+
+        /* Camera Deck Header & Tabs */
+        .deck-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid #333; padding-bottom: 12px; margin-bottom: 15px; flex-wrap: wrap; }
+        .cam-tabs { display: flex; gap: 8px; }
+        .cam-tab { padding: 8px 18px; font-size: 15px; border-radius: 6px; background: #2c2825; color: #aaa; border: 1px solid #443e39; width: auto; }
+        .cam-tab.active-cam { background: #b87b44; color: #fff; border-color: #d99b62; }
+        .deck-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        /* Unified Deck Body: Large Viewport + Tactical Sidebar */
+        .deck-body { display: grid; grid-template-columns: 1fr 250px; gap: 18px; align-items: start; }
+        @media (max-width: 800px) { .deck-body { grid-template-columns: 1fr; } }
+
+        .viewport-box { background: #0a0a0a; border: 2px solid #3a3633; border-radius: 8px; overflow: hidden; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; }
+        #cv-stream { width: 100%; height: 100%; object-fit: contain; cursor: crosshair; display: block; }
+        #preview-paused-msg { display: none; color: #786b5f; font-size: 16px; font-weight: bold; }
+
+        /* Tactical Sidebar: PTZ Pad & Quick Presets */
+        .tactical-panel { background: #161514; border: 1px solid #2e2b28; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+        .ptz-pad-row { display: flex; gap: 10px; justify-content: center; align-items: center; }
+        .joystick-grid { display: grid; grid-template-columns: repeat(3, 44px); gap: 6px; }
+        .joystick-btn { padding: 10px 0; font-size: 16px; background: #3a3633; border: 1px solid #524c47; border-radius: 5px; width: 44px; text-align: center; }
+        .joystick-btn:hover { background: #4f4944; }
+        .zoom-col { display: flex; flex-direction: column; gap: 6px; }
+        .zoom-btn { width: 48px; padding: 10px 0; font-size: 15px; background: #594b3d; border: 1px solid #756350; }
+        .zoom-btn:hover { background: #6e5d4c; }
+
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 150px; overflow-y: auto; }
+        .preset-btn { padding: 8px 6px; font-size: 13px; background: #2b2724; border: 1px solid #47403b; color: #e0d8d0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+        .preset-btn:hover { background: #453e38; border-color: #8c7b6b; color: #fff; }
+
+        /* Direct OBS Switcher Grid */
+        .obs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .obs-scene-btn { padding: 10px 8px; font-size: 13px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+
+        /* Modal & Sequence Table */
         .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
         .modal-content { background-color: #1e1e1e; margin: 2% auto; padding: 25px; border-radius: 10px; max-width: 900px; border: 1px solid #444; position: relative; max-height: 90vh; overflow-y: auto; }
         .close-btn { position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close-btn:hover { color: #fff; }
         
-        .tab { overflow: hidden; border-bottom: 1px solid #444; margin-bottom: 20px; display: flex; gap: 5px;}
-        .tab button { background-color: #2a2a2a; color: #aaa; border: none; cursor: pointer; padding: 12px 20px; transition: 0.3s; border-radius: 8px 8px 0 0; width: auto; font-size: 15px;}
-        .tab button:hover { background-color: #444; color: white; }
-        .tab button.active { background-color: #0275d8; color: white; }
+        .tab { overflow: hidden; border-bottom: 1px solid #444; margin-bottom: 20px; display: flex; gap: 5px; }
+        .tab button { background-color: #2a2a2a; color: #aaa; border: none; padding: 10px 18px; border-radius: 6px 6px 0 0; width: auto; }
+        .tab button.active { background-color: #b87b44; color: white; }
         .tabcontent { display: none; }
 
-        .settings-group { text-align: left; margin-bottom: 20px; background: #2a2a2a; padding: 20px; border-radius: 8px; border: 1px solid #333;}
-        .settings-group label { font-weight: bold; display: flex; justify-content: space-between; margin-top: 10px; font-size: 14px; color: #bbb;}
+        .settings-group { text-align: left; margin-bottom: 20px; background: #2a2a2a; padding: 20px; border-radius: 8px; border: 1px solid #333; }
+        .settings-group label { font-weight: bold; display: flex; justify-content: space-between; margin-top: 10px; font-size: 14px; color: #bbb; }
         .settings-group input, .settings-group select { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #444; background: #121212; color: white; box-sizing: border-box; }
-        
-        .joystick-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 15px auto; }
-        .joystick-btn { padding: 15px; font-size: 20px; background: #444; }
-        .joystick-btn:hover { background: #555; }
-        .zoom-btn { background: #0275d8; color: white; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th, td { border: 1px solid #444; padding: 10px; text-align: center; }
-        th { background-color: #333; }
-        .seq-input { width: 95%; padding: 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; }
-        .terminal { background: #0a0a0a; border: 1px solid #333; border-radius: 5px; padding: 10px; font-family: monospace; font-size: 14px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #5bc0de; margin-top: 10px;}
+        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+        th { background-color: #2a2725; }
+        .seq-input { width: 95%; padding: 7px; border-radius: 4px; border: 1px solid #555; background: #181818; color: white; }
+        .terminal { background: #0a0a0a; border: 1px solid #2e2b28; border-radius: 5px; padding: 8px 12px; font-family: monospace; font-size: 13px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #deb887; margin-top: 12px; }
         
-        #cv-stream { cursor: crosshair; }
-        .progress-bg { background: #333; border-radius: 5px; height: 12px; overflow: hidden; margin-top: 15px; border: 1px solid #222;}
-        .progress-fill { background: #5cb85c; height: 100%; width: 0%; transition: width 0.1s linear, background-color 0.3s; }
+        .progress-bg { background: #2b2724; border-radius: 5px; height: 10px; overflow: hidden; margin-top: 12px; border: 1px solid #1a1816; }
+        .progress-fill { background: #d9534f; height: 100%; width: 0%; transition: width 0.1s linear, background-color 0.3s; }
     </style>
 </head>
 <body>
 
-    <div class="header" style="max-width: 1400px; margin: 0 auto 20px;">
-        <h1>PTZ Director <span style="font-size:16px; color:#888;">| Operator Dashboard</span></h1>
+    <div class="header">
+        <h1>PTZ Director <span style="font-size:16px; color:#888;">| Operator Control Deck</span></h1>
         <button class="btn-settings" onclick="openModal()">⚙️ System Configuration</button>
     </div>
 
-    <!-- MAIN DASHBOARD: ROW 1 -->
-    <div class="grid-container">
+    <!-- MAIN DASHBOARD: TOP ROW -->
+    <div class="broadcast-grid">
         
-        <div class="card" style="border: 2px solid #0275d8;">
-            <h2>Automated Tour</h2>
-            <div style="background: #121212; padding: 15px; border-radius: 5px; border: 1px solid #333; margin-bottom: 20px;">
-                <h4 style="color:#aaa; margin-bottom:5px;">Currently Live</h4>
-                <h3 id="tour-live-scene" class="text-danger" style="margin: 0; font-size: 20px;">--</h3>
-                <hr style="border-color: #333; margin: 15px 0;">
-                <h4 style="color:#aaa; margin-bottom:5px;">Up Next</h4>
-                <h4 id="tour-next-scene" class="text-warning" style="margin: 0; font-size: 16px;">--</h4>
+        <!-- LEFT PANEL: AUTOMATED TOUR & DIRECT OBS SWITCHER -->
+        <div class="card">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0;">Automated Tour</h3>
+                    <button id="tourBtn" class="btn-inactive-tan" onclick="toggleTour()" style="width: auto; padding: 8px 16px; font-size: 14px;">▶ Start Auto-Tour</button>
+                </div>
                 
-                <div class="progress-bg"><div id="tour-progress" class="progress-fill"></div></div>
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <h4 id="tour-error-text" class="text-danger" style="margin: 5px 0 0 0; text-align: left; display: none;"></h4>
-                    <p style="text-align: right; margin: 5px 0 0 auto; color: #888; font-size: 14px; font-weight:bold;">
-                        <span id="tour-timer-text">0.0</span>s remaining
-                    </p>
+                <div style="background: #141312; padding: 12px; border-radius: 6px; border: 1px solid #2e2b28; margin-bottom: 18px; text-align: left;">
+                    <div style="font-size: 12px; color:#888; text-transform: uppercase;">Currently Live</div>
+                    <div id="tour-live-scene" class="text-danger" style="font-size: 16px; font-weight: bold; margin: 3px 0 10px 0;">--</div>
+                    
+                    <div style="font-size: 12px; color:#888; text-transform: uppercase;">Up Next</div>
+                    <div id="tour-next-scene" class="text-warning" style="font-size: 14px; font-weight: bold; margin: 3px 0 0 0;">--</div>
+                    
+                    <div class="progress-bg"><div id="tour-progress" class="progress-fill"></div></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                        <span id="tour-error-text" class="text-danger" style="font-size: 12px; font-weight: bold; display: none;"></span>
+                        <span style="margin-left: auto; color: #888; font-size: 12px; font-weight:bold;">
+                            <span id="tour-timer-text">0.0</span>s rem
+                        </span>
+                    </div>
                 </div>
             </div>
-            <button id="tourBtn" class="btn-blue" onclick="toggleTour()" style="padding: 20px; font-size: 20px;">▶ Start Auto-Tour</button>
+
+            <!-- DIRECT OBS SCENE SWITCHER -->
+            <div style="border-top: 1px solid #333; padding-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0; color: #ccc;">OBS Direct Switcher</h4>
+                    <button class="btn-small btn-settings" onclick="loadOBSScenes()" title="Refresh OBS Scenes">🔄</button>
+                </div>
+                <div id="obs-switcher-grid" class="obs-grid">
+                    <div style="color: #666; font-size: 13px; grid-column: span 2; padding: 10px;">Loading OBS Scenes...</div>
+                </div>
+            </div>
         </div>
 
+        <!-- RIGHT PANEL: UNIFIED CAMERA CONTROL DECK -->
         <div class="card">
-            <h2>Manual Override</h2>
-            <select id="active-manual-cam" style="width: 100%; padding: 10px; background: #222; color: white; border: 1px solid #555; border-radius: 5px; margin-bottom: 20px; font-size: 16px;" onchange="updateVideoSrc()">
-                <option value="cam_1">Controlling: Camera 1</option>
-                <option value="cam_2">Controlling: Camera 2</option>
-            </select>
-            
-            <h3 id="status" class="text-danger" style="margin-bottom: 20px;">Tracking Standby</h3>
-            <button id="toggleBtn" class="btn-off" onclick="toggleTracking()">Force Tracking Active</button>
-            <h4 style="margin-top: 30px; margin-bottom: 5px; text-align: left; color:#aaa;">Target Telemetry</h4>
+            <div>
+                <!-- DECK HEADER BAR -->
+                <div class="deck-header">
+                    <div class="cam-tabs">
+                        <button id="tab-cam-1" class="cam-tab active-cam" onclick="selectManualCam('cam_1')">🎥 Camera 1</button>
+                        <button id="tab-cam-2" class="cam-tab" onclick="selectManualCam('cam_2')">🎥 Camera 2</button>
+                    </div>
+                    
+                    <div class="deck-controls">
+                        <span id="status" class="text-muted" style="font-size: 14px; font-weight: bold; margin-right: 4px;">Tracking Standby</span>
+                        <button id="toggleBtn" class="btn-inactive-tan" onclick="toggleTracking()">Tracking On</button>
+                        <button id="videoBtn" class="btn-active-red" onclick="toggleVideo()">Preview</button>
+                        <button class="btn-settings" onclick="clearTarget()">Clear Target</button>
+                    </div>
+                </div>
+
+                <!-- DECK BODY: 16:9 VIEWPORT + TACTICAL SIDEBAR -->
+                <div class="deck-body">
+                    <div class="viewport-box">
+                        <img id="cv-stream" src="/api/video_feed/cam_1" onclick="setManualTarget(event)" title="Click anywhere on video to lock target" />
+                        <div id="preview-paused-msg">Preview Paused</div>
+                    </div>
+
+                    <div class="tactical-panel">
+                        <div>
+                            <div style="font-size: 12px; color: #aaa; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-align: center;">PTZ Jog & Zoom</div>
+                            <div class="ptz-pad-row">
+                                <div class="joystick-grid">
+                                    <div></div>
+                                    <button class="joystick-btn" onmousedown="ptzMoveActive('up')" onmouseup="ptzMoveActive('stop')" onmouseleave="ptzMoveActive('stop')">▲</button>
+                                    <div></div>
+                                    <button class="joystick-btn" onmousedown="ptzMoveActive('left')" onmouseup="ptzMoveActive('stop')" onmouseleave="ptzMoveActive('stop')">◀</button>
+                                    <button class="joystick-btn" onclick="ptzMoveActive('stop')">■</button>
+                                    <button class="joystick-btn" onmousedown="ptzMoveActive('right')" onmouseup="ptzMoveActive('stop')" onmouseleave="ptzMoveActive('stop')">▶</button>
+                                    <div></div>
+                                    <button class="joystick-btn" onmousedown="ptzMoveActive('down')" onmouseup="ptzMoveActive('stop')" onmouseleave="ptzMoveActive('stop')">▼</button>
+                                    <div></div>
+                                </div>
+                                <div class="zoom-col">
+                                    <button class="zoom-btn" onmousedown="ptzZoomActive('in')" onmouseup="ptzZoomActive('stop')" onmouseleave="ptzZoomActive('stop')" title="Zoom In">➕</button>
+                                    <button class="zoom-btn" onmousedown="ptzZoomActive('out')" onmouseup="ptzZoomActive('stop')" onmouseleave="ptzZoomActive('stop')" title="Zoom Out">➖</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px solid #2e2b28; padding-top: 10px;">
+                            <div style="font-size: 12px; color: #aaa; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-align: center;">Quick Shot Presets</div>
+                            <div id="quick-preset-grid" class="preset-grid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOTER TELEMETRY -->
             <div class="terminal" id="cmd-output">System Starting...</div>
-            <h4 style="margin-top: 20px; margin-bottom: 5px; text-align: left; color:#aaa;">OBS Broadcaster</h4>
-            <div style="background: #121212; padding: 15px; border-radius: 5px; border: 1px solid #333;">
-                <h3 id="current-scene" class="text-warning" style="margin: 0;">Unknown</h3>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Vision & Radar</h2>
-            <button id="videoBtn" class="btn-off" onclick="toggleVideo()" style="margin-bottom: 15px;">Show Camera Preview</button>
-            
-            <div id="video-container" style="display: none; text-align: center; margin-bottom: 15px;">
-                <img id="cv-stream" src="" onclick="setManualTarget(event)" title="Click to lock target" style="width: 100%; max-width: 100%; border: 2px solid #5bc0de; border-radius: 8px;" />
-                <button class="btn-settings" style="margin-top: 10px;" onclick="clearTarget()">Clear Locked Target</button>
-            </div>
-            
-            <canvas id="radar" width="200" height="200" style="margin: 0 auto; display: block;"></canvas>
-            <div style="font-family: monospace; color: #5bc0de; font-size: 16px; margin-top: 10px;">
-                X Error: <span id="err-x">0</span> | Y Error: <span id="err-y">0</span>
-            </div>
         </div>
     </div>
 
     <!-- MAIN DASHBOARD: ROW 2 (SEQUENCE BUILDER) -->
-    <div class="card" style="max-width: 1400px; margin: 20px auto;">
-        <h2 style="text-align: left; margin-bottom: 5px;">Director Sequence Builder</h2>
-        <p style="text-align: left; color: #aaa; margin-top: 0; margin-bottom: 15px;">Click 'GO' to manually trigger a shot. Actions set to 'Auto-Track' will not require a settle delay.</p>
+    <div class="card" style="max-width: 1450px; margin: 20px auto;">
+        <h3 style="text-align: left; margin-bottom: 4px;">Director Sequence Builder</h3>
+        <p style="text-align: left; color: #888; margin-top: 0; margin-bottom: 12px; font-size: 13px;">Click 'GO' to manually trigger a shot. Actions set to 'Auto-Track' do not require a settle delay.</p>
         
         <table id="seq-table">
             <thead>
@@ -136,9 +213,9 @@
             <tbody id="seq-body"></tbody>
         </table>
         
-        <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-start;">
-            <button class="btn-settings" style="width: 150px;" onclick="addSeqRow()">+ Add Cue</button>
-            <button class="btn-blue" style="width: 200px;" onclick="saveSequence()">Save Show File</button>
+        <div style="display: flex; gap: 10px; margin-top: 15px; justify-content: flex-start;">
+            <button class="btn-settings" onclick="addSeqRow()">+ Add Cue</button>
+            <button class="btn-inactive-tan" onclick="saveSequence()">💾 Save Show File</button>
         </div>
     </div>
 
@@ -156,7 +233,7 @@
 
             <!-- CAM 1 SETUP -->
             <div id="TabCam1" class="tabcontent">
-                <div class="settings-group" style="border-left: 4px solid #5cb85c;">
+                <div class="settings-group" style="border-left: 4px solid #b87b44;">
                     <h3 style="margin-top:0;">Hardware IO Routing</h3>
                     <label>Video Source (USB Index or RTSP URL)</label>
                     <input type="text" id="cam1-source" style="margin-bottom: 15px;">
@@ -173,38 +250,23 @@
                     <label>Bound OBS Scene</label>
                     <div style="display: flex; gap: 10px;">
                         <select id="cam1-obs-scene" class="obs-scene-select" style="flex: 1;"></select>
-                        <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh">🔄</button>
+                        <button class="btn-settings" onclick="loadOBSScenes()" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
-                        <h3 style="margin-top:0;">Virtual PTZ</h3>
-                        <div style="display: flex; gap: 15px; justify-content: center;">
-                            <div class="joystick-grid">
-                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_1','up')" onmouseup="ptzMove('cam_1','stop')">▲</button><div></div>
-                                <button class="joystick-btn" onmousedown="ptzMove('cam_1','left')" onmouseup="ptzMove('cam_1','stop')">◀</button>
-                                <button class="joystick-btn" onmousedown="ptzMove('cam_1','stop')">■</button>
-                                <button class="joystick-btn" onmousedown="ptzMove('cam_1','right')" onmouseup="ptzMove('cam_1','stop')">▶</button>
-                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_1','down')" onmouseup="ptzMove('cam_1','stop')">▼</button><div></div>
-                            </div>
-                            <div class="joystick-grid" style="grid-template-columns: 1fr; width: 60px;">
-                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_1','in')" onmouseup="ptzZoom('cam_1','stop')">➕</button>
-                                <div style="height: 10px;"></div>
-                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_1','out')" onmouseup="ptzZoom('cam_1','stop')">➖</button>
-                            </div>
-                        </div>
-                        <hr style="border-color:#444; margin: 15px 0;">
-                        <label>Recall Saved Preset</label>
+                        <h3 style="margin-top:0;">Preset Management (Cam 1)</h3>
+                        <label>Existing Presets</label>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <select id="cam1-preset-select" style="flex: 2;"></select>
-                            <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset('cam_1')">Recall</button>
-                            <button class="btn-off" style="width: 40px; padding: 0;" onclick="deleteCustomPreset('cam_1')" title="Delete Preset">X</button>
+                            <button class="btn-settings" onclick="ptzRecallPreset('cam_1')">Test</button>
+                            <button class="btn-active-red" onclick="deleteCustomPreset('cam_1')" title="Delete Preset">X</button>
                         </div>
-                        <label>Save / Overwrite Custom Preset</label>
+                        <label>Save Current Camera Position to Preset</label>
                         <div style="display: flex; gap: 10px;">
-                            <input type="number" id="cam1-preset-id" min="1" max="254" value="1" style="flex: 1;" placeholder="ID (1-254)">
-                            <input type="text" id="cam1-preset-name" value="Preset 1" style="flex: 2;" placeholder="Name (e.g., Wide)">
-                            <button class="btn-on" style="flex: 1;" onclick="saveCustomPreset('cam_1')">Save</button>
+                            <input type="number" id="cam1-preset-id" min="1" max="254" value="1" style="flex: 1;" placeholder="ID">
+                            <input type="text" id="cam1-preset-name" value="Preset 1" style="flex: 2;" placeholder="Name (e.g., Pulpit)">
+                            <button class="btn-inactive-tan" onclick="saveCustomPreset('cam_1')">Save</button>
                         </div>
                     </div>
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
@@ -225,7 +287,7 @@
 
             <!-- CAM 2 SETUP -->
             <div id="TabCam2" class="tabcontent">
-                <div class="settings-group" style="border-left: 4px solid #5bc0de;">
+                <div class="settings-group" style="border-left: 4px solid #b87b44;">
                     <h3 style="margin-top:0;">Hardware IO Routing</h3>
                     <label>Video Source (USB Index or RTSP URL)</label>
                     <input type="text" id="cam2-source" style="margin-bottom: 15px;">
@@ -242,38 +304,23 @@
                     <label>Bound OBS Scene</label>
                     <div style="display: flex; gap: 10px;">
                         <select id="cam2-obs-scene" class="obs-scene-select" style="flex: 1;"></select>
-                        <button class="btn-settings" style="width: auto; padding: 10px;" onclick="loadOBSScenes()" title="Refresh">🔄</button>
+                        <button class="btn-settings" onclick="loadOBSScenes()" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
-                        <h3 style="margin-top:0;">Virtual PTZ</h3>
-                        <div style="display: flex; gap: 15px; justify-content: center;">
-                            <div class="joystick-grid">
-                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_2','up')" onmouseup="ptzMove('cam_2','stop')">▲</button><div></div>
-                                <button class="joystick-btn" onmousedown="ptzMove('cam_2','left')" onmouseup="ptzMove('cam_2','stop')">◀</button>
-                                <button class="joystick-btn" onmousedown="ptzMove('cam_2','stop')">■</button>
-                                <button class="joystick-btn" onmousedown="ptzMove('cam_2','right')" onmouseup="ptzMove('cam_2','stop')">▶</button>
-                                <div></div><button class="joystick-btn" onmousedown="ptzMove('cam_2','down')" onmouseup="ptzMove('cam_2','stop')">▼</button><div></div>
-                            </div>
-                            <div class="joystick-grid" style="grid-template-columns: 1fr; width: 60px;">
-                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_2','in')" onmouseup="ptzZoom('cam_2','stop')">➕</button>
-                                <div style="height: 10px;"></div>
-                                <button class="joystick-btn zoom-btn" onmousedown="ptzZoom('cam_2','out')" onmouseup="ptzZoom('cam_2','stop')">➖</button>
-                            </div>
-                        </div>
-                        <hr style="border-color:#444; margin: 15px 0;">
-                        <label>Recall Saved Preset</label>
+                        <h3 style="margin-top:0;">Preset Management (Cam 2)</h3>
+                        <label>Existing Presets</label>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <select id="cam2-preset-select" style="flex: 2;"></select>
-                            <button class="btn-settings" style="flex: 1;" onclick="ptzRecallPreset('cam_2')">Recall</button>
-                            <button class="btn-off" style="width: 40px; padding: 0;" onclick="deleteCustomPreset('cam_2')" title="Delete Preset">X</button>
+                            <button class="btn-settings" onclick="ptzRecallPreset('cam_2')">Test</button>
+                            <button class="btn-active-red" onclick="deleteCustomPreset('cam_2')" title="Delete Preset">X</button>
                         </div>
-                        <label>Save / Overwrite Custom Preset</label>
+                        <label>Save Current Camera Position to Preset</label>
                         <div style="display: flex; gap: 10px;">
-                            <input type="number" id="cam2-preset-id" min="1" max="254" value="1" style="flex: 1;" placeholder="ID (1-254)">
-                            <input type="text" id="cam2-preset-name" value="Preset 1" style="flex: 2;" placeholder="Name (e.g., Wide)">
-                            <button class="btn-on" style="flex: 1;" onclick="saveCustomPreset('cam_2')">Save</button>
+                            <input type="number" id="cam2-preset-id" min="1" max="254" value="1" style="flex: 1;" placeholder="ID">
+                            <input type="text" id="cam2-preset-name" value="Preset 1" style="flex: 2;" placeholder="Name (e.g., Keys)">
+                            <button class="btn-inactive-tan" onclick="saveCustomPreset('cam_2')">Save</button>
                         </div>
                     </div>
                     <div class="settings-group" style="flex: 1; min-width: 300px;">
@@ -309,13 +356,13 @@
                             <input type="text" id="obs-pass" placeholder="(Blank if none)">
                         </div>
                     </div>
-                    <button class="btn-blue" style="margin-top:15px;" onclick="connectOBS()">Force Reconnect OBS</button>
+                    <button class="btn-inactive-tan" style="margin-top:15px;" onclick="connectOBS()">Force Reconnect OBS</button>
                     <p style="text-align: left; margin-top: 15px; font-size:16px;">Connection Status: <span id="obs-conn-status" class="text-danger">Disconnected</span></p>
                 </div>
             </div>
             
             <div style="display: flex; justify-content: flex-end; padding-top: 20px; border-top: 1px solid #333; margin-top: 20px;">
-                <button class="btn-on" style="width: 250px; font-size: 18px; padding: 15px;" onclick="saveConfigBtn()">💾 Save All Settings</button>
+                <button class="btn-active-red" style="width: 220px; font-size: 16px; padding: 12px;" onclick="saveConfigBtn()">💾 Save All Settings</button>
             </div>
 
         </div>
@@ -324,6 +371,10 @@
     <script>
         window.cam1_presets = {};
         window.cam2_presets = {};
+        window.obs_scenes_list = [];
+        window.current_obs_scene = "Unknown";
+        let activeManualCam = "cam_1";
+        let showVideo = true; // Preview ON by default
 
         const modal = document.getElementById("settingsModal");
         
@@ -349,6 +400,62 @@
             evt.currentTarget.className += " active";
         }
         document.getElementById("defaultOpen").click();
+
+        function getActiveCam() { return activeManualCam; }
+
+        function selectManualCam(camId) {
+            activeManualCam = camId;
+            document.getElementById('tab-cam-1').className = (camId === 'cam_1') ? 'cam-tab active-cam' : 'cam-tab';
+            document.getElementById('tab-cam-2').className = (camId === 'cam_2') ? 'cam-tab active-cam' : 'cam-tab';
+            updateVideoSrc();
+            renderQuickPresets();
+        }
+
+        function renderQuickPresets() {
+            const grid = document.getElementById('quick-preset-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            const dict = (activeManualCam === 'cam_1') ? window.cam1_presets : window.cam2_presets;
+            const entries = Object.entries(dict || {});
+            if (entries.length === 0) {
+                grid.innerHTML = '<div style="color:#666; font-size:12px; grid-column:span 2; text-align:center;">No presets saved</div>';
+                return;
+            }
+            for (const [id, name] of entries) {
+                const btn = document.createElement('button');
+                btn.className = 'preset-btn';
+                btn.innerText = name;
+                btn.title = `Recall Preset ${id}: ${name}`;
+                btn.onclick = () => ptzRecallPresetDirect(activeManualCam, parseInt(id));
+                grid.appendChild(btn);
+            }
+        }
+
+        function renderOBSSwitcher() {
+            const grid = document.getElementById('obs-switcher-grid');
+            if (!grid) return;
+            if (!window.obs_scenes_list || window.obs_scenes_list.length === 0) {
+                grid.innerHTML = '<div style="color: #666; font-size: 13px; grid-column: span 2; padding: 8px;">No OBS scenes loaded</div>';
+                return;
+            }
+            grid.innerHTML = '';
+            window.obs_scenes_list.forEach(scene => {
+                const btn = document.createElement('button');
+                const isLive = (scene === window.current_obs_scene);
+                btn.className = isLive ? 'obs-scene-btn btn-active-red' : 'obs-scene-btn btn-inactive-tan';
+                btn.innerText = scene;
+                btn.onclick = () => switchOBSSceneDirect(scene);
+                grid.appendChild(btn);
+            });
+        }
+
+        function switchOBSSceneDirect(sceneName) {
+            fetch('/api/obs/set_scene', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({scene: sceneName})
+            });
+        }
 
         function populateConfigUI(data) {
             document.getElementById('cam1-source').value = data.cam1_source || "0";
@@ -390,16 +497,18 @@
             if (data.cam1_presets) window.cam1_presets = data.cam1_presets;
             if (data.cam2_presets) window.cam2_presets = data.cam2_presets;
         }
-
-        function getActiveCam() { return document.getElementById('active-manual-cam').value; }
         
         function toggleTracking() { fetch('/api/toggle', {method: 'POST', headers:{'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam()}) }); }
-        function ptzMove(cam, dir) { fetch('/api/ptz/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
-        function ptzZoom(cam, dir) { fetch('/api/ptz/zoom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, direction: dir})}); }
+        function ptzMoveActive(dir) { fetch('/api/ptz/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam(), direction: dir})}); }
+        function ptzZoomActive(dir) { fetch('/api/ptz/zoom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: getActiveCam(), direction: dir})}); }
         
+        function ptzRecallPresetDirect(cam, presetId) {
+            fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: presetId})});
+        }
+
         function ptzRecallPreset(cam) { 
             const id = document.getElementById(cam.replace('_','') + '-preset-select').value;
-            if(id) fetch('/api/ptz/recall_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: parseInt(id)})}); 
+            if(id) ptzRecallPresetDirect(cam, parseInt(id)); 
         }
         
         function saveCustomPreset(cam) {
@@ -409,7 +518,7 @@
             if(!id || !name) return alert("Enter an ID and a Name.");
             fetch('/api/ptz/save_preset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({camera_id: cam, preset: parseInt(id)})});
             window[`${prefix}_presets`][id] = name;
-            saveHubConfig(); updatePresetDropdowns(); renderSequenceTable(); alert("Preset Saved: " + name);
+            saveHubConfig(); updatePresetDropdowns(); renderQuickPresets(); renderSequenceTable(); alert("Preset Saved: " + name);
         }
 
         function deleteCustomPreset(cam) {
@@ -417,7 +526,7 @@
             const id = document.getElementById(prefix + '-preset-select').value;
             if(!id) return;
             delete window[`${prefix}_presets`][id];
-            saveHubConfig(); updatePresetDropdowns(); renderSequenceTable();
+            saveHubConfig(); updatePresetDropdowns(); renderQuickPresets(); renderSequenceTable();
         }
 
         function updatePresetDropdowns() {
@@ -448,6 +557,8 @@
         function loadOBSScenes() {
             fetch('/api/obs/scenes').then(r => r.json()).then(data => {
                 if (data.scenes && data.scenes.length > 0) {
+                    window.obs_scenes_list = data.scenes;
+                    renderOBSSwitcher();
                     document.querySelectorAll('.obs-scene-select').forEach(select => {
                         const currentVal = select.value || select.getAttribute('data-loaded-val') || "Unknown";
                         select.innerHTML = '';
@@ -531,7 +642,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-weight: bold; color: #5bc0de; margin-right: 5px;">${index + 1}</span>
+                        <span style="font-weight: bold; color: #deb887; margin-right: 5px;">${index + 1}</span>
                         <div>
                             <button class="btn-small btn-settings" onclick="moveCue(${index}, -1)">▲</button>
                             <button class="btn-small btn-settings" onclick="moveCue(${index}, 1)">▼</button>
@@ -542,8 +653,8 @@
                     <td><select class="seq-input" onchange="updateCue(${index}, 'action', this.value)">${actHtml}</select></td>
                     <td><input type="number" class="seq-input" value="${cue.settle_time_sec || 4}" onchange="updateCue(${index}, 'settle_time_sec', this.value)"></td>
                     <td><input type="number" class="seq-input" value="${cue.live_duration_sec || 15}" onchange="updateCue(${index}, 'live_duration_sec', this.value)"></td>
-                    <td><button class="btn-small btn-on" style="padding: 8px 15px; font-weight: bold;" onclick="goCue(${index})">GO 🎯</button></td>
-                    <td><button class="btn-small btn-off" onclick="deleteCue(${index})">X</button></td>
+                    <td><button class="btn-small btn-inactive-tan" style="padding: 6px 12px; font-weight: bold;" onclick="goCue(${index})">GO 🎯</button></td>
+                    <td><button class="btn-small btn-active-red" onclick="deleteCue(${index})">X</button></td>
                 `; tbody.appendChild(tr);
             });
         }
@@ -561,33 +672,36 @@
         function toggleTour() { fetch('/api/tour/toggle', {method: 'POST'}); }
         function goCue(index) { fetch('/api/tour/go', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({index: index}) }); }
 
-        let showVideo = false;
         function toggleVideo() { showVideo = !showVideo; updateVideoSrc(); }
         function updateVideoSrc() {
-            const container = document.getElementById('video-container'); 
             const stream = document.getElementById('cv-stream'); 
+            const pausedMsg = document.getElementById('preview-paused-msg');
             const btn = document.getElementById('videoBtn');
             const camId = getActiveCam();
             
-            if (showVideo) { stream.src = `/api/video_feed/${camId}`; container.style.display = "block"; btn.className = "btn-on"; btn.innerText = "Hide Camera Preview"; 
-            } else { stream.src = ""; container.style.display = "none"; btn.className = "btn-off"; btn.innerText = "Show Camera Preview"; }
-        }
-        
-        const canvas = document.getElementById('radar'); const ctx = canvas.getContext('2d');
-        function drawRadar(errX, errY, currentDb) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); const cx = canvas.width / 2, cy = canvas.height / 2;
-            ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke();
-            ctx.strokeStyle = 'rgba(92, 184, 92, 0.5)'; ctx.beginPath(); ctx.arc(cx, cy, currentDb / 2, 0, 2 * Math.PI); ctx.stroke();
-            const tx = cx + (errX / 4), ty = cy + (errY / 4);
-            const bx = Math.max(5, Math.min(canvas.width - 5, tx)), by = Math.max(5, Math.min(canvas.height - 5, ty));
-            ctx.fillStyle = '#5bc0de'; ctx.beginPath(); ctx.arc(bx, by, 5, 0, 2 * Math.PI); ctx.fill();
+            if (showVideo) { 
+                stream.src = `/api/video_feed/${camId}`; 
+                stream.style.display = "block";
+                pausedMsg.style.display = "none";
+                btn.className = "btn-active-red"; 
+                btn.innerText = "Preview"; 
+            } else { 
+                stream.src = ""; 
+                stream.style.display = "none";
+                pausedMsg.style.display = "block";
+                btn.className = "btn-inactive-tan"; 
+                btn.innerText = "Preview"; 
+            }
         }
 
+        // INIT DATA ON PAGE LOAD
         fetch('/api/state').then(r => r.json()).then(data => {
             if (data.cam1_presets) window.cam1_presets = data.cam1_presets;
             if (data.cam2_presets) window.cam2_presets = data.cam2_presets;
+            window.current_obs_scene = data.current_scene || "Unknown";
+            renderQuickPresets();
             renderSequenceTable();
+            loadOBSScenes();
         });
 
         setInterval(() => {
@@ -596,26 +710,32 @@
                 let dictsChanged = false;
                 if(JSON.stringify(window.cam1_presets) !== JSON.stringify(data.cam1_presets || {})) { window.cam1_presets = data.cam1_presets || {}; dictsChanged = true; }
                 if(JSON.stringify(window.cam2_presets) !== JSON.stringify(data.cam2_presets || {})) { window.cam2_presets = data.cam2_presets || {}; dictsChanged = true; }
-                if(dictsChanged) { updatePresetDropdowns(); renderSequenceTable(); }
+                if(dictsChanged) { updatePresetDropdowns(); renderQuickPresets(); renderSequenceTable(); }
+
+                if (window.current_obs_scene !== data.current_scene) {
+                    window.current_obs_scene = data.current_scene;
+                    renderOBSSwitcher();
+                }
 
                 const selCam = getActiveCam();
                 const camPrefix = selCam.replace('_', '');
                 
-                document.getElementById('err-x').innerText = data[`${camPrefix}_error_x`]; 
-                document.getElementById('err-y').innerText = data[`${camPrefix}_error_y`];
                 document.getElementById('cmd-output').innerText = data[`${camPrefix}_last_command`] || "Idle";
-                drawRadar(data[`${camPrefix}_error_x`], data[`${camPrefix}_error_y`], data[`${camPrefix}_deadband`] || 60);
                 
                 const trackBtn = document.getElementById('toggleBtn');
+                const statusLbl = document.getElementById('status');
                 if (data[`${camPrefix}_tracking_active`]) { 
-                    trackBtn.className = "btn-on"; trackBtn.innerText = "Tracking Active (Click to Disable)"; 
-                    document.getElementById('status').innerText = "Live Math Active"; document.getElementById('status').className = "text-success"; 
+                    trackBtn.className = "btn-active-red"; 
+                    trackBtn.innerText = "Tracking On"; 
+                    statusLbl.innerText = "Tracking Active"; 
+                    statusLbl.className = "text-danger"; 
                 } else { 
-                    trackBtn.className = "btn-off"; trackBtn.innerText = "Force Tracking Active"; 
-                    document.getElementById('status').innerText = "Tracking Standby"; document.getElementById('status').className = "text-danger"; 
+                    trackBtn.className = "btn-inactive-tan"; 
+                    trackBtn.innerText = "Tracking On"; 
+                    statusLbl.innerText = "Tracking Standby"; 
+                    statusLbl.className = "text-muted"; 
                 }
                 
-                document.getElementById('current-scene').innerText = data.current_scene;
                 document.getElementById('obs-conn-status').innerText = data.obs_connected ? "Connected" : "Disconnected";
                 document.getElementById('obs-conn-status').className = data.obs_connected ? "text-success" : "text-danger";
                 document.getElementById('tour-live-scene').innerText = data.tour_live_scene || "--";
@@ -624,20 +744,22 @@
                 const errText = document.getElementById('tour-error-text');
                 if (data.tour_error) {
                     errText.innerText = data.tour_error;
-                    errText.style.display = "block";
+                    errText.style.display = "inline";
                 } else {
                     errText.style.display = "none";
                 }
                 
                 const tourBtn = document.getElementById('tourBtn');
                 if (data.tour_active) { 
-                    tourBtn.className = "btn-off"; tourBtn.innerText = "⏹ Stop Auto-Tour";
+                    tourBtn.className = "btn-active-red"; 
+                    tourBtn.innerText = "⏹ Stop Auto-Tour";
                     const pct = Math.max(0, 100 - ((data.tour_time_rem / data.tour_time_total) * 100));
                     document.getElementById('tour-progress').style.width = pct + "%";
                     document.getElementById('tour-progress').style.backgroundColor = data.tour_phase === "LIVE ON AIR" ? "#d9534f" : "#f0ad4e";
                     document.getElementById('tour-timer-text').innerText = `${data.tour_phase} - ${Math.max(0, data.tour_time_rem).toFixed(1)}`;
                 } else { 
-                    tourBtn.className = "btn-blue"; tourBtn.innerText = "▶ Start Auto-Tour"; 
+                    tourBtn.className = "btn-inactive-tan"; 
+                    tourBtn.innerText = "▶ Start Auto-Tour"; 
                     document.getElementById('tour-progress').style.width = "0%";
                     document.getElementById('tour-timer-text').innerText = "0.0";
                 }

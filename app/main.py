@@ -188,6 +188,14 @@ def get_obs_scenes():
     if obs_manager and obs_manager.connected: scenes = obs_manager.get_scenes()
     return {"scenes": scenes}
 
+@app.post("/api/obs/set_scene")
+async def set_obs_scene_direct(request: Request):
+    data = await request.json()
+    scene = data.get("scene", "")
+    if obs_manager and obs_manager.connected and scene:
+        obs_manager.set_scene(scene)
+    return {"status": "success"}
+
 @app.get("/api/tour")
 def get_tour():
     if os.path.exists(TOUR_FILE):

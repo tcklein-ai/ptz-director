@@ -31,11 +31,8 @@ class PIDController:
         if abs(error) < self.deadband:
             self.integral = 0
             return 0
-            
-        # Linear Gain Scaling (mx + b): Scales straight up immediately past deadband
         norm_e = min(1.0, abs(error) / max(1, max_error))
         dynamic_p = self.Kp_min + (self.Kp_max - self.Kp_min) * norm_e
-        
         self.integral += error * dt
         derivative = (error - self.prev_error) / dt
         self.prev_error = error
@@ -70,7 +67,7 @@ def vision_loop():
             dt = current_time - last_time
             last_time = current_time
 
-            success, frame, err_x, err_y, track_status = tracker.get_frame()
+            success, frame, err_x, err_y, track_status = tracker.get_frame(worker_state["deadband"])
             
             if success:
                 latest_frame = frame.copy()
